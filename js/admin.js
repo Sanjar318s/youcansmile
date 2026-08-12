@@ -781,8 +781,12 @@
           const type = orderTypeLabel(o);
           const status = normalizeStatus(o.status);
           const created = o.createdAt ? new Date(o.createdAt) : null;
-          const dateStr = created ? created.toLocaleDateString() : '';
-          const timeStr = created ? created.toLocaleTimeString() : '';
+          const dateStr = created
+            ? created.toLocaleDateString('ru-RU', { timeZone: 'Asia/Tashkent' })
+            : '';
+          const timeStr = created
+            ? created.toLocaleTimeString('ru-RU', { timeZone: 'Asia/Tashkent' })
+            : '';
           return `
         <div class="order-card" data-order-id="${UI.escapeHtml(o.id)}">
           <div class="oc-head">

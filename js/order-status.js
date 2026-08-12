@@ -69,7 +69,7 @@
     </div>
     <div class="os-meta">
       <div><b>${I18n.t('admin_order_items')}:</b> ${UI.escapeHtml(typeLabel)}</div>
-      ${created ? `<div><b>${I18n.t('order_status_created')}:</b> ${UI.escapeHtml(created.toLocaleString())}</div>` : ''}
+      ${created ? `<div><b>${I18n.t('order_status_created')}:</b> ${UI.escapeHtml(created.toLocaleString('ru-RU', { timeZone: 'Asia/Tashkent' }))}</div>` : ''}
       ${order.total != null ? `<div><b>${I18n.t('cart_total')}:</b> ${Store.formatPrice(order.total, await Api.getSettings())}</div>` : ''}
     </div>
     <p class="os-hint">${I18n.t('order_status_hint')}</p>

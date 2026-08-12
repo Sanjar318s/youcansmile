@@ -168,7 +168,7 @@
     orders.forEach((o) => {
       const card = document.createElement('div');
       card.className = 'account-order card';
-      const dt = new Date(o.createdAt || Date.now()).toLocaleString();
+      const dt = new Date(o.createdAt || Date.now()).toLocaleString('ru-RU', { timeZone: 'Asia/Tashkent' });
       const items =
         o.type === 'custom'
           ? I18n.t('custom_title')
