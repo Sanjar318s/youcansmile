@@ -398,7 +398,7 @@ const Chat = (() => {
         return;
       }
       const s = document.createElement('script');
-      s.src = 'js/maps.js?v=20260813d';
+      s.src = 'js/maps.js?v=20260813e';
       s.async = true;
       s.dataset.ycsMaps = '1';
       s.onload = () => resolve(window.YcsMaps);
@@ -515,13 +515,13 @@ const Chat = (() => {
         },
       });
       if (gen !== locPickerGen) return;
-      if (!locMapApi?.hasMap) {
-        mapEl.innerHTML = `
-          <div class="chat-loc-fallback">
-            <div class="chat-loc-map" aria-hidden="true"><span class="chat-loc-pin">📍</span></div>
-            <p>${escape(I18n.t('chat_loc_pick_hint'))}</p>
-            <div class="chat-loc-coords">${center[0].toFixed(5)}, ${center[1].toFixed(5)}</div>
-          </div>`;
+      // OSM/Yandex already rendered; only hard-fail leaves hasMap false with map_error UI.
+      if (locMapApi?.hasMap) {
+        setTimeout(() => {
+          try {
+            locMapApi.setCenter?.(locPending || center);
+          } catch (_) {}
+        }, 100);
       }
     } catch (_) {
       if (gen !== locPickerGen) return;
