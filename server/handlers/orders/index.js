@@ -1,7 +1,10 @@
 const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
 const { ensureSeeded } = require(require('path').resolve(process.cwd(), 'lib/seed'));
 const { getOrders, saveOrder, uid } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const { getDb } = require(require('path').resolve(process.cwd(), 'lib/db'));
 const { getSessionUser } = require(require('path').resolve(process.cwd(), 'lib/auth'));
+const { allocOrderNumber, orderNumberLabel } = require(require('path').resolve(process.cwd(), 'lib/orders'));
+const { notifyAdmins } = require(require('path').resolve(process.cwd(), 'lib/push'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
@@ -22,15 +25,17 @@ module.exports = async (req, res) => {
       if (!me || me.role !== 'customer') {
         return json(res, 401, { error: 'auth', message: 'login_required' });
       }
+      const number = await allocOrderNumber(getDb);
       const order = Object.assign(
         {
           id: uid('o'),
+          number,
           createdAt: Date.now(),
           status: 'new',
           customerId: me.id,
         },
         body,
-        { customerId: me.id }
+        { customerId: me.id, number }
       );
       await saveOrder(order);
       try {
@@ -39,6 +44,14 @@ module.exports = async (req, res) => {
       } catch (e) {
         /* уведомление не должно ломать создание заказа */
       }
+      try {
+        await notifyAdmins({
+          title: 'YouCanSmile',
+          body: `Новый заказ — ${orderNumberLabel(order, 'ru')}`,
+          url: '/admin.html',
+          tag: `order-new-${order.id}`,
+        });
+      } catch (_) {}
       return json(res, 201, order);
     }
     return json(res, 405, { error: 'method' });

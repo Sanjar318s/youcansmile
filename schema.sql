@@ -95,3 +95,13 @@ CREATE TABLE IF NOT EXISTS media (
   data TEXT NOT NULL,
   created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 );
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint TEXT PRIMARY KEY,
+  user_id TEXT,
+  role TEXT NOT NULL DEFAULT 'customer',
+  keys_json TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_push_role ON push_subscriptions(role);

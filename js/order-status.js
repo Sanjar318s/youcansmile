@@ -63,7 +63,7 @@
 
   card.innerHTML = `
     <p class="os-kicker">${I18n.t('order_status_title')}</p>
-    <h1>#${UI.escapeHtml(order.id)}</h1>
+    <h1>${UI.escapeHtml(Store.orderNumberLabel(order))}</h1>
     <div class="os-status-wrap">
       <span class="order-status ${status}">${statusLabel(status)}</span>
     </div>

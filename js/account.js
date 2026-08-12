@@ -175,7 +175,7 @@
           : (o.items || []).map((i) => `${i.title || i.productId} × ${i.qty || 1}`).join(', ');
       card.innerHTML = `
         <div class="account-order-top">
-          <b>#${UI.escapeHtml(o.id)}</b>
+          <b>${UI.escapeHtml(Store.orderNumberLabel(o))}</b>
           <span class="order-status ${UI.escapeHtml(o.status || 'new')}">${statusLabel(o.status)}</span>
         </div>
         <p class="muted">${UI.escapeHtml(dt)}</p>

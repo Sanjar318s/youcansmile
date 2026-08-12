@@ -13,6 +13,7 @@ const {
   notifySellerRequest,
   notifySellerBotAnswer,
 } = require(require('path').resolve(process.cwd(), 'lib/telegram'));
+const { notifyAdmins, notifyUser } = require(require('path').resolve(process.cwd(), 'lib/push'));
 
 function toTelegramMsg(msg) {
   return {
@@ -60,6 +61,24 @@ module.exports = async (req, res) => {
 
     await saveMessage(msg);
     const out = [msg];
+    try {
+      const preview =
+        msg.type === 'text'
+          ? String(msg.text || '').slice(0, 80)
+          : msg.type === 'photo'
+            ? '📷 Фото'
+            : msg.type === 'voice'
+              ? '🎤 Голосовое'
+              : msg.type === 'location'
+                ? '📍 Геолокация'
+                : 'Сообщение';
+      await notifyAdmins({
+        title: 'Чат YouCanSmile',
+        body: `${customer.name || 'Клиент'}: ${preview}`,
+        url: '/admin.html',
+        tag: `chat-${thread.id}`,
+      });
+    } catch (_) {}
     const orders = await getCustomerOrders(me.id, me.phone);
     let needsSeller = !!Number(thread.needs_seller);
 
@@ -77,6 +96,14 @@ module.exports = async (req, res) => {
         };
         await saveMessage(agentMsg);
         out.push(agentMsg);
+        try {
+          await notifyUser(me.id, {
+            title: 'YouCanSmile',
+            body: String(agentMsg.text || '').slice(0, 100),
+            url: '/',
+            tag: `chat-agent-${thread.id}`,
+          });
+        } catch (_) {}
         if (connected) {
           await notifySellerLive(toTelegramMsg(msg), customer, thread.id);
           await notifySellerBotAnswer(answer, customer, thread.id, agentMsg.id);

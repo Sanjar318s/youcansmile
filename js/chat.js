@@ -398,7 +398,7 @@ const Chat = (() => {
         return;
       }
       const s = document.createElement('script');
-      s.src = 'js/maps.js?v=20260813f';
+      s.src = 'js/maps.js?v=20260813h';
       s.async = true;
       s.dataset.ycsMaps = '1';
       s.onload = () => resolve(window.YcsMaps);
@@ -942,6 +942,7 @@ const Chat = (() => {
     if (sessionWarmed) return;
     sessionWarmed = true;
     await syncSession();
+    if (me && typeof YcsPush !== 'undefined') YcsPush.warm();
   }
 
   async function init() {
@@ -958,6 +959,7 @@ const Chat = (() => {
 
   async function onLogin() {
     await syncSession();
+    if (typeof YcsPush !== 'undefined') YcsPush.subscribe(true);
   }
 
   function onLogout() {

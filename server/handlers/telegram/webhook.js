@@ -359,6 +359,24 @@ module.exports = async (req, res) => {
     }
     await setNeedsSeller(threadId, false);
 
+    try {
+      const { notifyUser } = require(require('path').resolve(process.cwd(), 'lib/push'));
+      const preview =
+        sellerMsg.type === 'text'
+          ? String(sellerMsg.text || '').slice(0, 100)
+          : sellerMsg.type === 'photo'
+            ? '📷 Фото от продавца'
+            : sellerMsg.type === 'voice'
+              ? '🎤 Голосовое от продавца'
+              : 'Сообщение от продавца';
+      await notifyUser(thread.customer_id, {
+        title: 'YouCanSmile',
+        body: preview,
+        url: '/',
+        tag: `chat-seller-${threadId}`,
+      });
+    } catch (_) {}
+
     return json(res, 200, { ok: true });
   } catch (e) {
     return json(res, 500, { error: e.message });

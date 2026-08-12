@@ -312,7 +312,7 @@
     const fulfillLabel = fulfillment === 'pickup' ? I18n.t('fulfill_pickup') : I18n.t('fulfill_delivery');
     const channelLabel = contactChannel === 'instagram' ? I18n.t('contact_instagram') : I18n.t('contact_telegram');
     const msg = encodeURIComponent(
-      `🛍️ ${I18n.t('order_title')} #${order.id}\n` +
+      `🛍️ ${I18n.t('order_title')} — ${Store.orderNumberLabel(order)}\n` +
         `\n${items.map((i) => `• ${i.title} × ${i.qty} = ${Store.formatPrice(i.price * i.qty, s)}`).join('\n')}\n` +
         `\n${I18n.t('cart_total')}: ${Store.formatPrice(total, s)}\n` +
         `\n📦 ${fulfillLabel}\n💳 ${payLabel}\n` +

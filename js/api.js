@@ -293,12 +293,14 @@ const Api = {
     const order = Object.assign(
       {
         id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        number: String(100000 + Math.floor(Math.random() * 900000)),
         createdAt: Date.now(),
         status: 'new',
         customerId: me && me.role === 'customer' ? me.id : data.customerId,
       },
       data
     );
+    if (!order.number) order.number = String(100000 + Math.floor(Math.random() * 900000));
     all.unshift(order);
     this._save(this.KEYS.orders, all);
     return order;

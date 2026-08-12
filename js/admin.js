@@ -62,6 +62,7 @@
     if (res.ok) {
       document.getElementById('loginErr').classList.add('hidden');
       enterApp();
+      if (typeof YcsPush !== 'undefined') YcsPush.subscribe(true);
     } else {
       document.getElementById('loginErr').classList.remove('hidden');
     }
@@ -605,8 +606,9 @@
 
   function buildStatusNotifyMessage(order, status) {
     const url = orderStatusPageUrl(order.id);
+    const numLabel = Store.orderNumberLabel(order);
     return I18n.t('admin_order_notify_msg')
-      .replace(/\{id\}/g, order.id)
+      .replace(/\{id\}/g, numLabel)
       .replace(/\{status\}/g, statusLabel(status))
       .replace(/\{url\}/g, url);
   }
@@ -791,7 +793,7 @@
         <div class="order-card" data-order-id="${UI.escapeHtml(o.id)}">
           <div class="oc-head">
             <div class="oc-title">
-              <span class="oc-id">#${UI.escapeHtml(o.id)}</span>
+              <span class="oc-id">${UI.escapeHtml(Store.orderNumberLabel(o))}</span>
               <span class="oc-sep">—</span>
               <span class="oc-who">${UI.escapeHtml(who)}</span>
               <span class="oc-sep">·</span>
@@ -833,12 +835,19 @@
         btn.disabled = true;
         try {
           const updated = await Api.updateOrder(id, { status });
+          if (!updated || normalizeStatus(updated.status) !== status) {
+            UI.toast(I18n.t('order_status_update_fail'));
+            return;
+          }
           const links = notifyClient(updated, status);
           const box = card.querySelector(`[data-notify="${id}"]`);
           if (box) {
             box.classList.remove('hidden');
+            const chatNote = updated.chatNotified
+              ? `<span>${I18n.t('admin_order_notified')} чат ✓${updated.pushNotified ? ' · push ✓' : ''}</span>`
+              : `<span>${I18n.t('admin_order_notified')}</span>`;
             box.innerHTML = `
-              <span>${I18n.t('admin_order_notified')}</span>
+              ${chatNote}
               ${links.tg ? `<a class="btn btn-sm btn-secondary" target="_blank" rel="noopener" href="${links.tg}">Telegram</a>` : ''}
               ${links.wa ? `<a class="btn btn-sm btn-secondary" target="_blank" rel="noopener" href="${links.wa}">WhatsApp</a>` : ''}
               <button type="button" class="btn btn-sm btn-secondary js-copy-status" data-url="${UI.escapeHtml(links.url)}">${I18n.t('admin_order_copy_link')}</button>`;
@@ -848,9 +857,10 @@
             badge.className = `order-status ${status}`;
             badge.textContent = statusLabel(status);
           }
-          UI.toast(I18n.t('admin_saved'));
+          sel.value = status;
+          UI.toast(I18n.t('order_status_updated'));
         } catch (err) {
-          UI.toast(err.message || 'Error');
+          UI.toast(err.message || I18n.t('order_status_update_fail'));
         } finally {
           btn.disabled = false;
         }
@@ -1324,6 +1334,7 @@
     const me = await Api.getMe();
     if (me && me.role === 'admin') {
       enterApp();
+      if (typeof YcsPush !== 'undefined') YcsPush.subscribe(true);
     }
   })();
 })();

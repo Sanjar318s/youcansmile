@@ -6,8 +6,9 @@ function load(rel) {
 }
 
 function partsFromReq(req) {
-  if (Array.isArray(req.query.path)) return req.query.path.filter(Boolean);
-  if (typeof req.query.path === 'string' && req.query.path) return [req.query.path];
+  const q = req.query || {};
+  if (Array.isArray(q.path)) return q.path.filter(Boolean);
+  if (typeof q.path === 'string' && q.path) return [q.path];
   const url = (req.url || '').split('?')[0];
   return url.replace(/^\/?api\/?/, '').split('/').filter(Boolean);
 }
@@ -15,6 +16,7 @@ function partsFromReq(req) {
 module.exports = async (req, res) => {
   const parts = partsFromReq(req);
   const route = parts.join('/');
+  if (!req.query || typeof req.query !== 'object') req.query = {};
 
   try {
     if (route === 'migrate') return load('migrate.js')(req, res);
@@ -33,6 +35,7 @@ module.exports = async (req, res) => {
     if (route === 'chat/thread') return load('chat/thread.js')(req, res);
     if (route === 'chat/messages') return load('chat/messages.js')(req, res);
     if (route === 'telegram/webhook') return load('telegram/webhook.js')(req, res);
+    if (route === 'push' || route === 'push/subscribe') return load('push/index.js')(req, res);
 
     if (route === 'products') return load('products/index.js')(req, res);
     if (parts[0] === 'products' && parts[1]) {

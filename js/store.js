@@ -97,5 +97,21 @@ const Store = (() => {
       if (!p.oldPrice) return 0;
       return Math.round((1 - p.price / p.oldPrice) * 100);
     },
+    orderNumber(order) {
+      if (!order) return '000000';
+      const n = order.number != null ? String(order.number).replace(/\D/g, '') : '';
+      if (n.length >= 6) return n.slice(-6);
+      if (n.length > 0) return n.padStart(6, '0');
+      const id = String(order.id || '');
+      let h = 0;
+      for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+      return String(100000 + (h % 900000));
+    },
+    orderNumberLabel(order) {
+      const n = this.orderNumber(order);
+      const t =
+        typeof I18n !== 'undefined' ? I18n.t('order_number_label') : 'Номер заказа {n}';
+      return String(t).replace(/\{n\}/g, n);
+    },
   };
 })();
