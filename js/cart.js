@@ -45,12 +45,23 @@
   let picked = { coords: null, address: '' };
 
   const pickupSelect = document.getElementById('oPickupPoint');
-  (s.pickupPoints || []).forEach((pt) => {
+  const pickupPoints = Array.isArray(s.pickupPoints) ? s.pickupPoints : [];
+  pickupSelect.innerHTML = '';
+  if (!pickupPoints.length) {
     const opt = document.createElement('option');
-    opt.value = pt.id;
-    opt.textContent = I18n.txt(pt.name) + ' — ' + I18n.txt(pt.address);
+    opt.value = '';
+    opt.textContent = I18n.t('map_pickup_empty');
     pickupSelect.appendChild(opt);
-  });
+    pickupSelect.disabled = true;
+  } else {
+    pickupSelect.disabled = false;
+    pickupPoints.forEach((pt) => {
+      const opt = document.createElement('option');
+      opt.value = pt.id;
+      opt.textContent = I18n.txt(pt.name) + ' — ' + I18n.txt(pt.address);
+      pickupSelect.appendChild(opt);
+    });
+  }
 
   const payRequisites = document.getElementById('payRequisites');
   payRequisites.innerHTML = UI.payRequisitesHTML(s);
@@ -67,6 +78,10 @@
     return (document.querySelector('input[name="oContactChannel"]:checked') || {}).value || 'telegram';
   }
 
+  function selectedPickup() {
+    return pickupPoints.find((p) => p.id === pickupSelect.value) || null;
+  }
+
   function syncFulfillmentUI() {
     const mode = getFulfillment();
     const cashWrap = document.getElementById('payCashWrap');
@@ -75,6 +90,7 @@
     const mapField = document.getElementById('orderMapField');
     const addressField = document.getElementById('orderAddressField');
     const addressLabel = addressField.querySelector('label');
+    const addressInput = document.getElementById('oAddress');
 
     if (mode === 'delivery') {
       cashWrap.classList.add('hidden');
@@ -83,6 +99,10 @@
       mapField.classList.remove('hidden');
       addressField.classList.remove('hidden');
       if (addressLabel) addressLabel.textContent = I18n.t('map_address_manual');
+      if (addressInput) {
+        addressInput.readOnly = false;
+        addressInput.value = picked.address || '';
+      }
       const cash = document.querySelector('input[name="payment"][value="cash"]');
       if (cash && cash.checked) {
         document.querySelector('input[name="payment"][value="card"]').checked = true;
@@ -93,8 +113,12 @@
       cardOnly.classList.add('hidden');
       pickupField.classList.remove('hidden');
       mapField.classList.add('hidden');
-      addressField.classList.remove('hidden');
-      if (addressLabel) addressLabel.textContent = I18n.t('map_pickup_point');
+      addressField.classList.add('hidden');
+      if (addressInput) {
+        addressInput.readOnly = true;
+        const pt = selectedPickup();
+        addressInput.value = pt ? I18n.txt(pt.address) : '';
+      }
     }
     syncPaymentUI();
   }
@@ -109,13 +133,13 @@
   syncFulfillmentUI();
 
   pickupSelect.addEventListener('change', () => {
-    const pt = (s.pickupPoints || []).find((p) => p.id === pickupSelect.value);
+    const pt = selectedPickup();
     if (!pt) return;
-    document.getElementById('oAddress').value = I18n.txt(pt.address);
-    picked = { coords: pt.coords, address: I18n.txt(pt.address) };
-    if (mapApi && mapApi.setCenter) mapApi.setCenter(pt.coords);
+    const addr = I18n.txt(pt.address);
+    document.getElementById('oAddress').value = addr;
+    picked = { coords: pt.coords || null, address: addr };
   });
-  if (pickupSelect.options.length) pickupSelect.dispatchEvent(new Event('change'));
+  if (pickupSelect.options.length && pickupSelect.value) pickupSelect.dispatchEvent(new Event('change'));
 
   async function ensureMap() {
     if (mapApi) return;
@@ -211,9 +235,13 @@
     const phone = document.getElementById('oPhone').value.trim();
     const contactUser = document.getElementById('oContactUser').value.trim();
     const contactChannel = getContactChannel();
-    const address = document.getElementById('oAddress').value.trim() || picked.address;
     const fulfillment = getFulfillment();
     let payment = getPayment();
+    const pt = fulfillment === 'pickup' ? selectedPickup() : null;
+    const address =
+      fulfillment === 'pickup'
+        ? (pt ? I18n.txt(pt.address) : '')
+        : document.getElementById('oAddress').value.trim() || picked.address;
 
     if (!name || !phone || !contactUser) {
       UI.toast(I18n.t('order_required'));
@@ -224,7 +252,7 @@
       payment = 'card';
     }
     if (fulfillment === 'pickup') {
-      if (!pickupSelect.value && !address) {
+      if (!pt || !pickupSelect.value) {
         UI.toast(I18n.t('order_fulfillment_required'));
         return;
       }

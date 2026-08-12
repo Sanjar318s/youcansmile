@@ -2032,6 +2032,36 @@ html:not([data-theme='purple']) .adm-badge.sale { background: rgba(230,126,99,0.
   grid-template-columns: 1fr;
   gap: 8px;
 }
+.pickup-editor {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+.pickup-card {
+  border: 1px solid var(--border-soft, #ddd2b8);
+  border-radius: 16px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--bg-card, #fffdf7) 92%, #efe8d6);
+  display: grid;
+  gap: 10px;
+}
+.pickup-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pickup-coords {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted, #7a7468);
+  font-size: 0.8rem;
+}
 .color-row {
   display: grid;
   grid-template-columns: 44px 1fr auto;

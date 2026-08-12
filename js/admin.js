@@ -1082,7 +1082,7 @@
       <form class="adm-form settings-form" id="setForm">
         <details class="set-acc" open>
           <summary>Магазин</summary>
-          <p class="set-hint">Название, курс валют и реквизиты карты.</p>
+          <p class="set-hint">Название, курс валют, реквизиты карты и точки самовывоза.</p>
           <div class="set-grid">
             <div class="field">
               <label>${I18n.t('admin_site_title')}</label>
@@ -1107,6 +1107,12 @@
                 <textarea id="sCardUz" placeholder="UZ">${cardReq.uz}</textarea>
                 <textarea id="sCardEn" placeholder="EN">${cardReq.en}</textarea>
               </div>
+            </div>
+            <div class="field full">
+              <label>Точки самовывоза</label>
+              <p class="set-hint" style="margin-top:0">Клиент выбирает только эти точки — свой адрес самовывоза писать нельзя.</p>
+              <div id="pickupPointsEditor" class="pickup-editor"></div>
+              <button type="button" class="btn btn-ghost" id="pickupAddBtn" style="margin-top:10px">＋ Добавить точку</button>
             </div>
           </div>
         </details>
@@ -1153,6 +1159,113 @@
         </div>
       </form>`;
 
+    const pickupEditor = document.getElementById('pickupPointsEditor');
+    const pickupAddBtn = document.getElementById('pickupAddBtn');
+
+    function emptyTri() {
+      return { ru: '', uz: '', en: '' };
+    }
+
+    function asTri(v) {
+      if (v && typeof v === 'object') {
+        return { ru: v.ru || '', uz: v.uz || '', en: v.en || '' };
+      }
+      const s0 = String(v || '');
+      return { ru: s0, uz: s0, en: s0 };
+    }
+
+    function pickupCardHTML(pt) {
+      const id = UI.escapeHtml(pt.id || '');
+      const name = asTri(pt.name);
+      const address = asTri(pt.address);
+      const lat = pt.coords && pt.coords[0] != null ? pt.coords[0] : '';
+      const lng = pt.coords && pt.coords[1] != null ? pt.coords[1] : '';
+      return `
+        <div class="pickup-card" data-pickup-id="${id}">
+          <div class="pickup-card-head">
+            <strong>Точка</strong>
+            <button type="button" class="btn btn-ghost pickup-del" title="Удалить">Удалить</button>
+          </div>
+          <input type="hidden" data-pp="id" value="${id}"/>
+          <div class="field full">
+            <label>Название (RU / UZ / EN)</label>
+            <div class="lang-cols">
+              <input data-pp="name" data-lang="ru" placeholder="RU" value="${UI.escapeHtml(name.ru)}"/>
+              <input data-pp="name" data-lang="uz" placeholder="UZ" value="${UI.escapeHtml(name.uz)}"/>
+              <input data-pp="name" data-lang="en" placeholder="EN" value="${UI.escapeHtml(name.en)}"/>
+            </div>
+          </div>
+          <div class="field full">
+            <label>Адрес (RU / UZ / EN)</label>
+            <div class="lang-cols">
+              <input data-pp="address" data-lang="ru" placeholder="RU" value="${UI.escapeHtml(address.ru)}"/>
+              <input data-pp="address" data-lang="uz" placeholder="UZ" value="${UI.escapeHtml(address.uz)}"/>
+              <input data-pp="address" data-lang="en" placeholder="EN" value="${UI.escapeHtml(address.en)}"/>
+            </div>
+          </div>
+          <div class="pickup-coords">
+            <div class="field">
+              <label>Широта</label>
+              <input data-pp="lat" type="number" step="any" value="${UI.escapeHtml(String(lat))}" placeholder="41.3265"/>
+            </div>
+            <div class="field">
+              <label>Долгота</label>
+              <input data-pp="lng" type="number" step="any" value="${UI.escapeHtml(String(lng))}" placeholder="69.235"/>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderPickupEditor(list) {
+      if (!pickupEditor) return;
+      const pts = Array.isArray(list) ? list : [];
+      pickupEditor.innerHTML = pts.length
+        ? pts.map((pt) => pickupCardHTML(pt)).join('')
+        : '<p class="set-hint">Пока нет точек — добавьте хотя бы одну.</p>';
+    }
+
+    function readPickupPointsFromDom() {
+      if (!pickupEditor) return [];
+      return [...pickupEditor.querySelectorAll('.pickup-card')].map((card, idx) => {
+        const idEl = card.querySelector('[data-pp="id"]');
+        let id = (idEl && idEl.value.trim()) || '';
+        if (!id) id = 'pp_' + Date.now().toString(36) + '_' + idx;
+        const name = emptyTri();
+        const address = emptyTri();
+        card.querySelectorAll('[data-pp="name"]').forEach((el) => {
+          if (el.dataset.lang) name[el.dataset.lang] = el.value.trim();
+        });
+        card.querySelectorAll('[data-pp="address"]').forEach((el) => {
+          if (el.dataset.lang) address[el.dataset.lang] = el.value.trim();
+        });
+        const lat = Number(card.querySelector('[data-pp="lat"]')?.value);
+        const lng = Number(card.querySelector('[data-pp="lng"]')?.value);
+        const coords =
+          Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
+        return { id, name, address, coords };
+      }).filter((pt) => pt.name.ru || pt.name.uz || pt.name.en || pt.address.ru);
+    }
+
+    renderPickupEditor(s.pickupPoints || []);
+    pickupAddBtn?.addEventListener('click', () => {
+      const current = readPickupPointsFromDom();
+      current.push({
+        id: 'pp_' + Date.now().toString(36),
+        name: emptyTri(),
+        address: emptyTri(),
+        coords: [41.2995, 69.2401],
+      });
+      renderPickupEditor(current);
+    });
+    pickupEditor?.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.pickup-del');
+      if (!btn || !pickupEditor.contains(btn)) return;
+      btn.closest('.pickup-card')?.remove();
+      if (!pickupEditor.querySelector('.pickup-card')) {
+        pickupEditor.innerHTML = '<p class="set-hint">Пока нет точек — добавьте хотя бы одну.</p>';
+      }
+    });
+
     document.getElementById('setForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const ns = {
@@ -1167,6 +1280,7 @@
           uz: document.getElementById('sCardUz').value.trim(),
           en: document.getElementById('sCardEn').value.trim(),
         },
+        pickupPoints: readPickupPointsFromDom(),
         announcement: readLangGroup('data-sfield', 'announcement'),
         heroTitle: readLangGroup('data-sfield', 'heroTitle'),
         heroSubtitle: readLangGroup('data-sfield', 'heroSubtitle'),
