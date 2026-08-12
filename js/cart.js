@@ -121,7 +121,7 @@
     if (mapApi) return;
     if (getFulfillment() !== 'delivery') return;
     mapApi = await YcsMaps.mount(document.getElementById('orderMap'), {
-      apiKey: s.yandexMapsKey,
+      apiKey: s.yandexMapsKey || '',
       confirm: true,
       onPick: ({ coords, address }) => {
         picked = { coords, address };

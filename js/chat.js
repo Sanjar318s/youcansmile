@@ -398,7 +398,7 @@ const Chat = (() => {
         return;
       }
       const s = document.createElement('script');
-      s.src = 'js/maps.js?v=20260813e';
+      s.src = 'js/maps.js?v=20260813f';
       s.async = true;
       s.dataset.ycsMaps = '1';
       s.onload = () => resolve(window.YcsMaps);

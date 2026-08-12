@@ -1,23 +1,44 @@
 /* ============================================================
-   YouCanSmile — maps helper (Yandex when keyed, else Leaflet OSM)
+   YouCanSmile — maps helper (Yandex 2.1 without required API key;
+   Leaflet OSM only if Yandex script fails)
    ============================================================ */
 const YcsMaps = (() => {
   const TASHKENT = [41.2995, 69.2401];
   let yandexLoading = null;
   let leafletLoading = null;
 
+  function yandexLang() {
+    const lang =
+      (typeof I18n !== 'undefined' && I18n.lang) ||
+      document.documentElement.lang ||
+      'ru';
+    if (lang === 'uz') return 'uz_UZ';
+    if (lang === 'en') return 'en_US';
+    return 'ru_RU';
+  }
+
   function loadYandexApi(apiKey) {
     if (window.ymaps) return Promise.resolve(window.ymaps);
     if (yandexLoading) return yandexLoading;
-    if (!apiKey) return Promise.reject(new Error('no-key'));
     yandexLoading = new Promise((resolve, reject) => {
+      const params = new URLSearchParams({ lang: yandexLang() });
+      if (apiKey) params.set('apikey', apiKey);
       const s = document.createElement('script');
-      s.src = `https://api-maps.yandex.ru/2.1/?apikey=${encodeURIComponent(apiKey)}&lang=ru_RU`;
+      // Same pattern as sanjar-ai/my-first-app — key optional
+      s.src = `https://api-maps.yandex.ru/2.1/?${params.toString()}`;
       s.async = true;
       s.onload = () => {
-        window.ymaps.ready(() => resolve(window.ymaps));
+        try {
+          window.ymaps.ready(() => resolve(window.ymaps));
+        } catch (e) {
+          yandexLoading = null;
+          reject(e);
+        }
       };
-      s.onerror = () => reject(new Error('maps-load-failed'));
+      s.onerror = () => {
+        yandexLoading = null;
+        reject(new Error('maps-load-failed'));
+      };
       document.head.appendChild(s);
     });
     return yandexLoading;
@@ -251,12 +272,10 @@ const YcsMaps = (() => {
     if (!el) return null;
     el.innerHTML = `<div class="map-loading">${typeof I18n !== 'undefined' ? I18n.t('map_loading') : 'Загрузка карты…'}</div>`;
 
-    if (opts.apiKey) {
-      try {
-        return await mountYandex(el, opts);
-      } catch (_) {
-        /* fall through to OSM */
-      }
+    try {
+      return await mountYandex(el, opts);
+    } catch (_) {
+      /* Yandex failed — emergency OSM fallback */
     }
 
     try {
