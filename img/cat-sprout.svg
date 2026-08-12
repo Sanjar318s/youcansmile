@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="75%">
+      <stop offset="0%" stop-color="#eef2df"/>
+      <stop offset="100%" stop-color="#dbe4c4"/>
+    </radialGradient>
+  </defs>
+
+  <circle cx="400" cy="400" r="390" fill="url(#bg)"/>
+
+  <!-- Ears -->
+  <path d="M250 330 Q210 140 360 270" fill="none" stroke="#f3ead6" stroke-width="58" stroke-linecap="round"/>
+  <path d="M550 330 Q590 140 440 270" fill="none" stroke="#f3ead6" stroke-width="58" stroke-linecap="round"/>
+  <path d="M250 330 Q210 140 360 270" fill="none" stroke="#c9b88a" stroke-width="14" stroke-linecap="round"/>
+  <path d="M550 330 Q590 140 440 270" fill="none" stroke="#c9b88a" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- Cream mochi head -->
+  <ellipse cx="400" cy="430" rx="210" ry="190" fill="#f3ead6" stroke="#c9b88a" stroke-width="12"/>
+
+  <!-- Sprout -->
+  <line x1="400" y1="250" x2="400" y2="140" stroke="#5c6f4a" stroke-width="14" stroke-linecap="round"/>
+  <path d="M400 155 Q330 95 320 170 Q370 150 400 200 Z" fill="#6f855c"/>
+  <path d="M400 155 Q470 95 480 170 Q430 150 400 200 Z" fill="#7d936a"/>
+
+  <!-- Eyes -->
+  <circle cx="330" cy="410" r="22" fill="#2c2c2c"/>
+  <circle cx="470" cy="410" r="22" fill="#2c2c2c"/>
+
+  <!-- w mouth -->
+  <path d="M360 480 Q380 515 400 480 Q420 515 440 480" fill="none" stroke="#2c2c2c" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Sage whiskers -->
+  <g stroke="#6f855c" stroke-width="12" stroke-linecap="round">
+    <line x1="210" y1="430" x2="280" y2="438"/>
+    <line x1="210" y1="470" x2="280" y2="470"/>
+    <line x1="590" y1="430" x2="520" y2="438"/>
+    <line x1="590" y1="470" x2="520" y2="470"/>
+  </g>
+</svg>

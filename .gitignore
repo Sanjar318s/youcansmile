@@ -1,0 +1,16 @@
+# dependencies
+node_modules/
+
+# vercel
+.vercel/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# backups / local data
+*.json.bak
+.env
+.env.local

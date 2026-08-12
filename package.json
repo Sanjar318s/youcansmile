@@ -1,0 +1,13 @@
+{
+  "name": "youcansmile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "YouCanSmile handmade jewelry shop",
+  "scripts": {
+    "migrate": "node scripts/migrate.js"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "dotenv": "^16.4.5"
+  }
+}

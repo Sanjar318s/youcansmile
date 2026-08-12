@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f3ecd9"/>
+      <stop offset="100%" stop-color="#e6d9b8"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cfe0c2"/>
+      <stop offset="100%" stop-color="#e8f0dc"/>
+    </linearGradient>
+    <linearGradient id="curtain" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7d936a"/>
+      <stop offset="100%" stop-color="#96ac80"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d9c9a3"/>
+      <stop offset="100%" stop-color="#c9b688"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff3c4"/>
+      <stop offset="100%" stop-color="#f6e2a0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- wall -->
+  <rect width="1600" height="900" fill="url(#wall)"/>
+
+  <!-- big window -->
+  <g>
+    <rect x="330" y="90" width="940" height="560" rx="260" fill="url(#sky)"/>
+    <circle cx="760" cy="230" r="70" fill="url(#sun)"/>
+    <g fill="#fff" opacity="0.85">
+      <ellipse cx="540" cy="470" rx="90" ry="34"/>
+      <ellipse cx="980" cy="520" rx="120" ry="44"/>
+      <ellipse cx="760" cy="560" rx="100" ry="36"/>
+    </g>
+    <g stroke="#5c6f4a" stroke-width="14" opacity="0.5">
+      <line x1="800" y1="90" x2="800" y2="650"/>
+      <line x1="330" y1="360" x2="1270" y2="360"/>
+    </g>
+    <!-- curtains -->
+    <path d="M290 40 L330 40 L330 700 Q300 640 290 620 Q270 660 258 640 L258 40 Z" fill="url(#curtain)" opacity="0.95"/>
+    <path d="M1270 40 L1310 40 L1310 700 Q1300 640 1310 620 Q1330 660 1342 640 L1342 40 Z" fill="url(#curtain)" opacity="0.95"/>
+  </g>
+
+  <!-- shelf -->
+  <g>
+    <rect x="360" y="640" width="880" height="26" rx="13" fill="#b99b68"/>
+    <rect x="360" y="666" width="26" height="40" fill="#a98d5c"/>
+    <rect x="1214" y="666" width="26" height="40" fill="#a98d5c"/>
+    <!-- mug 1 -->
+    <g transform="translate(470,560)">
+      <rect x="-34" y="14" width="68" height="62" rx="18" fill="#e67e63"/>
+      <rect x="34" y="30" width="30" height="20" rx="10" fill="none" stroke="#e67e63" stroke-width="8"/>
+      <circle cx="0" cy="32" r="8" fill="#f8f3e6"/>
+    </g>
+    <!-- mug 2 -->
+    <g transform="translate(600,568)">
+      <rect x="-34" y="14" width="68" height="62" rx="18" fill="#7d936a"/>
+      <rect x="34" y="30" width="30" height="20" rx="10" fill="none" stroke="#7d936a" stroke-width="8"/>
+      <path d="M-16 20 l12 18 8 -12 10 16" fill="none" stroke="#f8f3e6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <!-- notebooks -->
+    <g transform="translate(860,548)">
+      <rect x="0" y="34" width="120" height="74" rx="10" fill="#5c6f4a"/>
+      <rect x="10" y="24" width="120" height="74" rx="10" fill="#e67e63"/>
+      <rect x="20" y="14" width="120" height="74" rx="10" fill="#f8f3e6"/>
+      <line x1="46" y1="34" x2="120" y2="34" stroke="#b9ac92" stroke-width="4" stroke-linecap="round"/>
+      <line x1="46" y1="48" x2="120" y2="48" stroke="#b9ac92" stroke-width="4" stroke-linecap="round"/>
+      <line x1="46" y1="62" x2="110" y2="62" stroke="#b9ac92" stroke-width="4" stroke-linecap="round"/>
+    </g>
+    <!-- plant -->
+    <g transform="translate(1130,560)">
+      <path d="M0 80 L-26 46 A34 34 0 0 1 26 46 Z" fill="#7d936a"/>
+      <path d="M0 80 L-48 62 A30 30 0 0 1 -18 34 Z" fill="#8ba172"/>
+      <path d="M0 80 L48 62 A30 30 0 0 1 18 34 Z" fill="#6f855c"/>
+      <rect x="-26" y="80" width="52" height="30" rx="8" fill="#e67e63"/>
+    </g>
+  </g>
+
+  <!-- floor -->
+  <rect x="0" y="720" width="1600" height="180" fill="url(#floor)"/>
+  <g stroke="#b9a876" stroke-width="4" opacity="0.6">
+    <line x1="0" y1="760" x2="1600" y2="760"/>
+    <line x1="0" y1="800" x2="1600" y2="800"/>
+    <line x1="0" y1="840" x2="1600" y2="840"/>
+  </g>
+
+  <!-- plush cat -->
+  <g transform="translate(760,600)">
+    <ellipse cx="0" cy="130" rx="150" ry="46" fill="#5c6f4a" opacity="0.25"/>
+    <!-- tail -->
+    <path d="M120 100 Q180 60 170 20 Q166 2 150 6" fill="none" stroke="#c9a082" stroke-width="34" stroke-linecap="round"/>
+    <!-- body -->
+    <ellipse cx="0" cy="70" rx="90" ry="86" fill="#d9b896"/>
+    <!-- feet -->
+    <ellipse cx="-46" cy="150" rx="38" ry="22" fill="#c9a082"/>
+    <ellipse cx="46" cy="150" rx="38" ry="22" fill="#c9a082"/>
+    <!-- ears -->
+    <path d="M-62 -20 L-82 -70 L-34 -40 Z" fill="#c9a082"/>
+    <path d="M62 -20 L82 -70 L34 -40 Z" fill="#c9a082"/>
+    <path d="M-58 -26 L-70 -56 L-42 -38 Z" fill="#e8a18b"/>
+    <path d="M58 -26 L70 -56 L42 -38 Z" fill="#e8a18b"/>
+    <!-- head -->
+    <circle cx="0" cy="2" r="62" fill="#d9b896"/>
+    <!-- muzzle -->
+    <ellipse cx="0" cy="20" rx="30" ry="22" fill="#efdfc2"/>
+    <!-- eyes -->
+    <circle cx="-22" cy="-4" r="8" fill="#2c2c2c"/>
+    <circle cx="22" cy="-4" r="8" fill="#2c2c2c"/>
+    <circle cx="-19.5" cy="-6" r="2.6" fill="#fff"/>
+    <circle cx="24.5" cy="-6" r="2.6" fill="#fff"/>
+    <!-- nose -->
+    <path d="M-5 12 L5 12 L0 17 Z" fill="#e67e63"/>
+    <!-- mouth -->
+    <path d="M-10 20 Q0 30 10 20" fill="none" stroke="#2c2c2c" stroke-width="3" stroke-linecap="round"/>
+    <!-- whiskers -->
+    <g stroke="#2c2c2c" stroke-width="2.4" stroke-linecap="round" opacity="0.55">
+      <line x1="-70" y1="6" x2="-36" y2="12"/>
+      <line x1="-66" y1="24" x2="-34" y2="22"/>
+      <line x1="70" y1="6" x2="36" y2="12"/>
+      <line x1="66" y1="24" x2="34" y2="22"/>
+    </g>
+    <!-- scarf -->
+    <path d="M-52 40 Q0 66 52 40 L48 70 Q0 92 -48 70 Z" fill="#e67e63"/>
+    <rect x="-46" y="66" width="92" height="16" rx="8" fill="#d06a50"/>
+    <!-- heart on body -->
+    <path d="M0 92 Q-14 76 -8 64 Q0 54 0 64 Q0 54 8 64 Q14 76 0 92 Z" fill="#e67e63"/>
+  </g>
+
+  <!-- soft light vignette -->
+  <rect width="1600" height="900" fill="#2c2c2c" opacity="0.10"/>
+</svg>

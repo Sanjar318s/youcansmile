@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Корзина — YoucanSmile</title>
+  <meta name="description" content="Корзина и оформление заказа YoucanSmile."/>
+  <link rel="icon" href="img/logo-ycs.png"/>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('ycs_theme') || 'sage';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'sage');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/styles.css"/>
+</head>
+<body>
+
+  <div id="header-root"></div>
+
+  <section class="section" style="padding-top:36px;">
+    <div class="container">
+      <div class="section-head">
+        <h1 data-i18n="cart_title_id">Корзина</h1>
+      </div>
+
+      <div class="cart-empty hidden" id="cartEmpty" style="text-align:center; padding:40px 0;">
+        <p style="font-size:3.5rem;">🛒</p>
+        <h3 style="margin-top:10px;" data-i18n="cart_empty_id">Ваша корзина пока пуста</h3>
+        <a class="btn btn-primary" style="margin-top:20px;" href="catalog.html" data-i18n="cart_empty_cta_id">Перейти в каталог</a>
+      </div>
+
+      <div class="cart-layout" id="cartLayout">
+        <div>
+          <div class="cart-list" id="cartList"></div>
+        </div>
+
+        <aside class="cart-summary" id="cartSummary">
+          <h3 data-i18n="cart_summary_id">Ваш заказ</h3>
+          <div class="cs-row"><span data-i18n="cart_items_id">товаров на сумму</span><span id="sumItems"></span></div>
+          <div class="cs-row total"><span data-i18n="cart_total_id">Итого</span><b id="sumTotal"></b></div>
+          <button class="btn btn-primary" id="checkoutBtn" data-i18n="cart_checkout_id">Оформить заказ</button>
+          <p class="cs-note" data-i18n="cart_delivery_note_id">Доставка рассчитывается при подтверждении заказа</p>
+
+          <form class="order-form hidden" id="orderForm">
+            <h4 data-i18n="order_title_id">Оформление заказа</h4>
+            <p class="cs-note" style="text-align:left; margin:0 0 14px;" data-i18n="checkout_via_id"></p>
+            <div class="form-grid">
+              <div class="field">
+                <label data-i18n="order_name_id">Имя</label>
+                <input id="oName" required placeholder="" data-ph-i18n="order_name_ph_id"/>
+              </div>
+              <div class="field">
+                <label data-i18n="order_phone_id">Телефон</label>
+                <input id="oPhone" required type="tel" value="+998 " placeholder="+998 __ ___ __ __" data-ph-i18n="order_phone_ph_id"/>
+              </div>
+              <div class="field full">
+                <label data-i18n="contact_channel">Куда написать</label>
+                <div class="choice-row">
+                  <label class="choice-chip"><input type="radio" name="oContactChannel" value="telegram" checked/> <span data-i18n="contact_telegram">Telegram</span></label>
+                  <label class="choice-chip"><input type="radio" name="oContactChannel" value="instagram"/> <span data-i18n="contact_instagram">Instagram</span></label>
+                </div>
+              </div>
+              <div class="field full">
+                <label data-i18n="contact_username">Юзернейм</label>
+                <input id="oContactUser" required placeholder="@username" data-ph-i18n="contact_username_ph"/>
+              </div>
+              <div class="field full">
+                <label data-i18n="fulfill_title">Способ получения</label>
+                <div class="choice-row" id="fulfillRow">
+                  <label class="choice-chip"><input type="radio" name="fulfillment" value="pickup" checked/> <span data-i18n="fulfill_pickup">Самовывоз</span></label>
+                  <label class="choice-chip"><input type="radio" name="fulfillment" value="delivery"/> <span data-i18n="fulfill_delivery">Доставка</span></label>
+                </div>
+              </div>
+              <div class="field full" id="pickupPointField">
+                <label data-i18n="map_pickup_point">Точка самовывоза</label>
+                <select id="oPickupPoint"></select>
+              </div>
+              <div class="field full hidden" id="orderMapField">
+                <label data-i18n="map_title">Выберите точку на карте</label>
+                <div class="ycs-map" id="orderMap"></div>
+              </div>
+              <div class="field full" id="orderAddressField">
+                <label data-i18n="map_address_manual">Или введите адрес вручную</label>
+                <input id="oAddress" placeholder="" data-ph-i18n="order_address_ph_id"/>
+              </div>
+              <div class="field full">
+                <label data-i18n="pay_title">Способ оплаты</label>
+                <div class="choice-row" id="payRow">
+                  <label class="choice-chip"><input type="radio" name="payment" value="card" checked/> <span data-i18n="pay_card">Карта</span></label>
+                  <label class="choice-chip" id="payCashWrap"><input type="radio" name="payment" value="cash"/> <span data-i18n="pay_cash">Наличные</span></label>
+                </div>
+                <p class="cs-note pay-hint hidden" id="payCardOnly" data-i18n="pay_card_only"></p>
+                <div class="pay-requisites hidden" id="payRequisites"></div>
+              </div>
+              <div class="field full">
+                <label data-i18n="order_note_id">Комментарий к заказу</label>
+                <textarea id="oNote" placeholder="" data-ph-i18n="order_note_ph_id"></textarea>
+              </div>
+            </div>
+            <button class="btn btn-primary" type="submit" style="width:100%; margin-top:14px;" data-i18n="order_btn_id">Отправить заказ</button>
+          </form>
+
+          <div class="order-ok hidden" id="orderOk">
+            <p data-i18n="order_ok_id">Спасибо за заказ! Мы свяжемся с вами в ближайшее время 💛</p>
+            <p style="margin-top:10px; font-size:0.9rem;"><span data-i18n="order_in_cart_id">Товары из заказа:</span></p>
+            <div class="order-links" id="orderLinks" style="justify-content:center;"></div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- избранное -->
+      <div class="favs-section" id="favsSection">
+        <h2>❤️ <span data-i18n="fav_title_id">Избранное</span></h2>
+        <div class="products-grid" id="favGrid"></div>
+        <div class="catalog-empty hidden" id="favEmpty" style="padding:20px 0;">
+          <p data-i18n="fav_empty_id">В избранном пока пусто. Жмите на сердечко у понравившихся товаров!</p>
+          <a class="btn btn-gold" style="margin-top:16px;" href="catalog.html" data-i18n="fav_empty_cta_id">Выбрать товары</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer-root"></div>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/theme-apply.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/maps.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/cart.js"></script>
+</body>
+</html>

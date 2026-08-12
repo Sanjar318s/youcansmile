@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title data-i18n="account_title">Личный кабинет — YouCanSmile</title>
+  <link rel="icon" href="img/logo-ycs.png"/>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('ycs_theme') || 'sage';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'sage');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/styles.css"/>
+</head>
+<body>
+  <div id="header-root"></div>
+
+  <section class="section account-section">
+    <div class="container account-wrap">
+      <h1 data-i18n="account_title">Личный кабинет</h1>
+
+      <div id="accountGuest">
+        <div class="account-tabs">
+          <button type="button" class="btn btn-secondary account-tab active" data-tab="login" data-i18n="account_login">Вход</button>
+          <button type="button" class="btn btn-secondary account-tab" data-tab="register" data-i18n="account_register">Регистрация</button>
+        </div>
+        <form id="loginForm" class="account-form card">
+          <label><span data-i18n="account_phone">Телефон</span><input type="tel" id="loginPhone" required autocomplete="tel"/></label>
+          <label><span data-i18n="account_password">Пароль</span><input type="password" id="loginPassword" required autocomplete="current-password"/></label>
+          <button class="btn btn-primary" type="submit" data-i18n="account_login_btn">Войти</button>
+          <a class="btn btn-secondary account-google" href="/api/auth/google" data-i18n="account_google">Войти через Google</a>
+        </form>
+        <form id="registerForm" class="account-form card hidden">
+          <label><span data-i18n="account_name">Имя</span><input type="text" id="regName" required autocomplete="name"/></label>
+          <label><span data-i18n="account_phone">Телефон</span><input type="tel" id="regPhone" required autocomplete="tel"/></label>
+          <label><span data-i18n="account_password">Пароль</span><input type="password" id="regPassword" required minlength="4" autocomplete="new-password"/></label>
+          <button class="btn btn-primary" type="submit" data-i18n="account_register_btn">Зарегистрироваться</button>
+          <a class="btn btn-secondary account-google" href="/api/auth/google" data-i18n="account_google">Войти через Google</a>
+        </form>
+      </div>
+
+      <div id="accountUser" class="hidden">
+        <div class="account-head card">
+          <div>
+            <p class="account-greet"><span data-i18n="account_welcome">Здравствуйте</span>, <b id="accountName"></b></p>
+            <p class="muted" id="accountPhone"></p>
+          </div>
+          <button type="button" class="btn btn-secondary" id="logoutBtn" data-i18n="account_logout">Выйти</button>
+        </div>
+
+        <h2 data-i18n="account_orders">Мои заказы</h2>
+        <div id="ordersList" class="account-orders"></div>
+        <p class="catalog-empty hidden" id="ordersEmpty" data-i18n="account_orders_empty">Заказов пока нет.</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer-root"></div>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/theme-apply.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/account.js"></script>
+</body>
+</html>

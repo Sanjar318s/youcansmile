@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Soft shadow -->
+  <ellipse cx="100" cy="178" rx="48" ry="10" fill="rgba(44,44,44,0.14)"/>
+
+  <!-- Ears (cream outline style like logo) -->
+  <path d="M58 78 Q48 28 88 62" fill="none" stroke="#f3ead6" stroke-width="16" stroke-linecap="round"/>
+  <path d="M142 78 Q152 28 112 62" fill="none" stroke="#f3ead6" stroke-width="16" stroke-linecap="round"/>
+  <path d="M58 78 Q48 28 88 62" fill="none" stroke="#c9b88a" stroke-width="4" stroke-linecap="round"/>
+  <path d="M142 78 Q152 28 112 62" fill="none" stroke="#c9b88a" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Cream mochi head -->
+  <ellipse cx="100" cy="112" rx="62" ry="56" fill="#f3ead6" stroke="#c9b88a" stroke-width="3.5"/>
+
+  <!-- Sprout -->
+  <line x1="100" y1="58" x2="100" y2="28" stroke="#5c6f4a" stroke-width="4" stroke-linecap="round"/>
+  <path d="M100 32 Q78 14 74 36 Q90 30 100 46 Z" fill="#6f855c"/>
+  <path d="M100 32 Q122 14 126 36 Q110 30 100 46 Z" fill="#7d936a"/>
+
+  <!-- Eyes -->
+  <circle cx="78" cy="106" r="7" fill="#2c2c2c"/>
+  <circle cx="122" cy="106" r="7" fill="#2c2c2c"/>
+
+  <!-- w mouth -->
+  <path d="M88 128 Q94 138 100 128 Q106 138 112 128" fill="none" stroke="#2c2c2c" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Sage whiskers -->
+  <g stroke="#6f855c" stroke-width="3.5" stroke-linecap="round">
+    <line x1="42" y1="114" x2="64" y2="116"/>
+    <line x1="42" y1="126" x2="64" y2="126"/>
+    <line x1="158" y1="114" x2="136" y2="116"/>
+    <line x1="158" y1="126" x2="136" y2="126"/>
+  </g>
+</svg>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YouCanSmile — украшения ручной работы</title>
+  <meta name="description" content="YouCanSmile — украшения ручной работы: брелки, кулоны, чокеры, браслеты и подвески для телефона."/>
+  <link rel="icon" href="img/logo-ycs.png"/>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('ycs_theme') || 'sage';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'sage');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/styles.css"/>
+</head>
+<body>
+
+  <div id="header-root"></div>
+
+  <!-- ======================= HERO 3D (Sage beige / Purple) ======================= -->
+  <section class="hero-luxury" id="hero">
+    <canvas class="hero-canvas" id="heroCanvas" aria-hidden="true"></canvas>
+    <div class="hero-vignette" aria-hidden="true"></div>
+
+    <div class="hero-jewels" id="heroJewels" aria-hidden="true">
+      <div class="hero-jewel j1" data-float="1">
+        <svg viewBox="0 0 120 160"><defs><linearGradient id="c1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="var(--crystal-hi)"/><stop offset="40%" stop-color="var(--crystal-mid)"/><stop offset="100%" stop-color="var(--crystal-lo)"/></linearGradient><filter id="g1"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+          <polygon points="60,8 95,48 60,152 25,48" fill="url(#c1)" filter="url(#g1)"/>
+          <polygon points="60,8 78,48 60,90 42,48" fill="#fff" opacity=".35"/>
+          <ellipse cx="60" cy="48" rx="18" ry="8" fill="var(--crystal-hi2)" opacity=".5"/>
+        </svg>
+      </div>
+      <div class="hero-jewel j2" data-float="2">
+        <svg viewBox="0 0 120 160"><defs><linearGradient id="c2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="var(--crystal-hi)"/><stop offset="40%" stop-color="var(--crystal-mid)"/><stop offset="100%" stop-color="var(--crystal-lo)"/></linearGradient><filter id="g2"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+          <polygon points="60,8 95,48 60,152 25,48" fill="url(#c2)" filter="url(#g2)"/>
+          <polygon points="60,8 78,48 60,90 42,48" fill="#fff" opacity=".35"/>
+          <ellipse cx="60" cy="48" rx="18" ry="8" fill="var(--crystal-hi2)" opacity=".5"/>
+        </svg>
+      </div>
+      <div class="hero-jewel j3" data-float="3">
+        <svg viewBox="0 0 100 130"><defs><linearGradient id="c3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--crystal-hi2)"/><stop offset="100%" stop-color="var(--crystal-lo2)"/></linearGradient></defs>
+          <path d="M50 6 L82 40 L50 124 L18 40 Z" fill="url(#c3)"/>
+          <path d="M50 6 L66 40 L50 70 L34 40 Z" fill="#fff" opacity=".3"/>
+          <circle cx="50" cy="20" r="4" fill="#fff" opacity=".7"/>
+        </svg>
+      </div>
+      <div class="hero-jewel j4" data-float="4">
+        <svg viewBox="0 0 100 130"><defs><linearGradient id="c4" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--crystal-hi)"/><stop offset="100%" stop-color="var(--crystal-lo)"/></linearGradient></defs>
+          <path d="M50 6 L82 40 L50 124 L18 40 Z" fill="url(#c4)"/>
+          <path d="M50 6 L66 40 L50 70 L34 40 Z" fill="#fff" opacity=".3"/>
+          <circle cx="50" cy="20" r="4" fill="#fff" opacity=".7"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="hero-scene">
+      <div class="hero-title-stage">
+        <h1 class="hero-title-3d" id="heroTitle">YouCanSmile</h1>
+        <div class="hero-reflection" id="heroReflection" aria-hidden="true">YouCanSmile</div>
+      </div>
+
+      <div class="hero-inner container" id="heroInner">
+        <p class="hero-sub" id="heroSub"></p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg" href="catalog.html" data-i18n="sage_hero_cta">Смотреть коллекцию</a>
+          <a class="btn btn-secondary btn-lg" href="custom-order.html" data-i18n="sage_hero_custom">Индивидуальный заказ</a>
+        </div>
+      </div>
+    </div>
+
+    <button class="hero-scroll-hint" id="heroScrollHint" aria-label="Scroll">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+  </section>
+
+  <!-- ==================== КАТЕГОРИИ (скрыто — layout как Sage) ===================== -->
+  <section class="section theme-extra-hidden" id="categories" style="padding-top:24px;">
+    <div class="container">
+      <div class="section-head">
+        <span class="kicker">Каталог</span>
+        <h2 data-i18n="cat_cats_title_id">Выберите своё настроение</h2>
+      </div>
+      <div class="cats-grid" id="catsGrid"></div>
+    </div>
+  </section>
+
+  <!-- ==================== ПРОМО / НОВОСТИ =================== -->
+  <section class="section promo-section" id="promos" aria-label="News and promotions">
+    <div class="container">
+      <div class="section-head promo-head">
+        <span class="kicker" data-i18n="promo_kicker">Новости</span>
+        <h2 data-i18n="promo_title">Акции и обновления</h2>
+      </div>
+      <div class="promo-slider" id="promoSlider" hidden>
+        <div class="promo-viewport">
+          <div class="promo-track" id="promoTrack"></div>
+          <div class="promo-orbs" aria-hidden="true">
+            <span class="promo-orb o1"></span>
+            <span class="promo-orb o2"></span>
+            <span class="promo-orb o3"></span>
+          </div>
+        </div>
+        <div class="promo-controls">
+          <button type="button" class="promo-nav promo-prev" id="promoPrev" aria-label="Previous">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg>
+          </button>
+          <div class="promo-dots" id="promoDots" role="tablist"></div>
+          <button type="button" class="promo-nav promo-next" id="promoNext" aria-label="Next">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+        <div class="promo-progress" aria-hidden="true"><span id="promoProgress"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== ХИТЫ =================== -->
+  <section class="section" id="featured">
+    <div class="container">
+      <div class="section-head">
+        <span class="kicker" data-i18n="sage_featured_kicker">Shop</span>
+        <h2 data-i18n="sage_featured_title">Featured Favourites</h2>
+      </div>
+      <div class="gender-filters" id="genderFilters" role="tablist">
+        <button type="button" class="gender-chip active" data-gender="all" data-i18n="sage_filter_all">Все</button>
+        <button type="button" class="gender-chip" data-gender="male" data-i18n="sage_filter_male">Мужские</button>
+        <button type="button" class="gender-chip" data-gender="female" data-i18n="sage_filter_female">Женские</button>
+      </div>
+      <div class="products-grid" id="featuredGrid"></div>
+      <div style="text-align:center; margin-top:36px;">
+        <a class="btn btn-primary" href="catalog.html" data-i18n="view_all_id">Смотреть все</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== О НАС ===================== -->
+  <section class="section" id="about">
+    <div class="container">
+      <div class="about-sage">
+        <div class="about-sage-visual">
+          <img class="sage-only" src="img/logo-ycs.png" alt="YOU CAN SMILE SHOP"/>
+          <div class="about-visual purple-only">
+            <img class="about-logo-purple" src="img/logo-ycs-purple.png" alt="YOU CAN SMILE SHOP"/>
+          </div>
+        </div>
+        <div class="about-sage-text">
+          <span class="kicker" data-i18n="sage_philosophy_kicker">Our Philosophy</span>
+          <h2 data-i18n="sage_philosophy_title">Eco-Friendly &amp; Joyful Goods</h2>
+          <span class="about-sage-sub" data-i18n="sage_philosophy_sub">Our packaging is made from recycled materials 🌿</span>
+          <p data-i18n="sage_philosophy_text">Our goods are made to be loved — and every little smile is the whole point of what we do.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= FAQ / ДОСТАВКА / КОНТАКТЫ ===================== -->
+  <section class="section" id="faq">
+    <div class="container">
+      <div class="section-head">
+        <span class="kicker" data-i18n="sage_footer_faq">FAQ</span>
+        <h2 data-i18n="faq_title">Частые вопросы</h2>
+      </div>
+      <div class="info-cards">
+        <div class="info-card">
+          <h3 data-i18n="faq_q1">Как сделать заказ?</h3>
+          <p data-i18n="faq_a1">Добавьте товары в корзину или оформите индивидуальный заказ — мы свяжемся с вами в Telegram или Instagram.</p>
+        </div>
+        <div class="info-card">
+          <h3 data-i18n="faq_q2">Можно ли заказать по референсу?</h3>
+          <p data-i18n="faq_a2">Да. Опишите, что хотите — например брелок по персонажу — и приложите фото. Сделаем украшение под ваш запрос.</p>
+        </div>
+        <div class="info-card">
+          <h3 data-i18n="faq_q3">Какие способы оплаты?</h3>
+          <p data-i18n="faq_a3">Перевод на карту или наличные при самовывозе. При доставке — только карта.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="shipping" style="padding-top:0;">
+    <div class="container">
+      <div class="section-head">
+        <span class="kicker" data-i18n="sage_footer_shipping">Доставка</span>
+        <h2 data-i18n="shipping_title">Самовывоз и доставка</h2>
+      </div>
+      <div class="info-cards">
+        <div class="info-card">
+          <h3 data-i18n="fulfill_pickup">Самовывоз</h3>
+          <p data-i18n="shipping_pickup_text">Заберите заказ в удобной точке в Ташкенте. Точку выбираете при оформлении.</p>
+        </div>
+        <div class="info-card">
+          <h3 data-i18n="fulfill_delivery">Доставка</h3>
+          <p data-i18n="shipping_delivery_text">Доставляем по Ташкенту. Адрес указываете на карте или вручную при заказе.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="contacts" style="padding-top:0;">
+    <div class="container">
+      <div class="section-head">
+        <span class="kicker" data-i18n="sage_footer_contact">Контакты</span>
+        <h2 data-i18n="nav_contacts2">Контакты</h2>
+      </div>
+      <div class="contact-strip" id="contactStrip"></div>
+    </div>
+  </section>
+
+  <!-- ======================= ОТЗЫВЫ / ПОДПИСКА — скрыты ===================== -->
+  <section class="section theme-extra-hidden">
+    <div class="container">
+      <div class="section-head">
+        <span class="kicker">Отзывы</span>
+        <h2 data-i18n="reviews_title_id">Что говорят покупатели</h2>
+      </div>
+      <div class="reviews-grid">
+        <div class="review">
+          <div class="stars">★★★★★</div>
+          <p>«Кулон „Кристалл" — настоящее волшебство. Светится в свете и все спрашивают, где брала!»</p>
+          <div class="who">Анна, <span>Москва</span></div>
+        </div>
+        <div class="review">
+          <div class="stars">★★★★★</div>
+          <p>«Качество и упаковка на высоте. Заказала серьги в подарок — подруга в восторге.»</p>
+          <div class="who">Мария, <span>Санкт-Петербург</span></div>
+        </div>
+        <div class="review">
+          <div class="stars">★★★★★</div>
+          <p>«Индивидуальный заказ сделали точно по эскизу. Сияет, как на макете!»</p>
+          <div class="who">Екатерина, <span>Казань</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section theme-extra-hidden" style="padding-top:0;">
+    <div class="container">
+      <div class="newsletter">
+        <h2 data-i18n="newsletter_title_id">Будьте в курсе новинок</h2>
+        <p data-i18n="newsletter_sub_id">Подпишитесь и получите скидку 10% на первый заказ</p>
+        <form id="newsletterForm">
+          <input type="email" required placeholder="" data-ph-i18n="newsletter_email_id"/>
+          <button class="btn" type="submit" data-i18n="newsletter_btn_id">Подписаться</button>
+        </form>
+        <div class="ok" id="newsletterOk" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer-root"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/theme-apply.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/hero3d.js"></script>
+  <script src="js/heroSage3d.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/promo-slider.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

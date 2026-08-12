@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Индивидуальный заказ — YouCanSmile</title>
+  <meta name="description" content="Индивидуальный заказ украшений ручной работы: брелок, кулон, чокер, браслет или подвеска для телефона."/>
+  <link rel="icon" href="img/logo-ycs.png"/>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('ycs_theme') || 'sage';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'sage');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/styles.css"/>
+</head>
+<body>
+  <div id="header-root"></div>
+
+  <section class="section" style="padding-top:36px;">
+    <div class="container custom-order-page">
+      <div class="section-head" style="text-align:left;">
+        <span class="kicker" data-i18n="custom_nav">Индивидуальный заказ</span>
+        <h1 data-i18n="custom_title">Индивидуальный заказ</h1>
+      </div>
+
+      <form class="order-form custom-order-form" id="customForm">
+        <div class="form-section">
+          <h3 data-i18n="custom_section_what">Что нужно</h3>
+          <div class="form-grid">
+            <div class="field full">
+              <label data-i18n="custom_desc">Описание товара</label>
+              <textarea id="cDesc" required rows="5" data-ph-i18n="custom_desc_ph"></textarea>
+            </div>
+            <div class="field full">
+              <label data-i18n="custom_character_photo">Референс или фото идеи</label>
+              <div class="upload-field">
+                <label class="pay-receipt-label">
+                  <input type="file" accept="image/*" id="cCharacterPhoto"/>
+                  <span class="pay-receipt-btn" data-i18n="custom_character_photo_btn">Загрузить фото</span>
+                </label>
+                <div class="upload-preview" id="cCharacterPreview" data-i18n="custom_character_photo_empty">Превью появится здесь</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3 data-i18n="custom_section_contacts">Контакты</h3>
+          <div class="form-grid">
+            <div class="field">
+              <label data-i18n="order_name_id">Имя</label>
+              <input id="cName" required data-ph-i18n="order_name_ph_id"/>
+            </div>
+            <div class="field">
+              <label data-i18n="order_phone_id">Телефон</label>
+              <input id="cPhone" required type="tel" value="+998 " placeholder="+998 __ ___ __ __" data-ph-i18n="order_phone_ph_id"/>
+            </div>
+            <div class="field full">
+              <label data-i18n="contact_channel">Куда написать</label>
+              <div class="choice-row">
+                <label class="choice-chip"><input type="radio" name="cContactChannel" value="telegram" checked/> <span data-i18n="contact_telegram">Telegram</span></label>
+                <label class="choice-chip"><input type="radio" name="cContactChannel" value="instagram"/> <span data-i18n="contact_instagram">Instagram</span></label>
+              </div>
+            </div>
+            <div class="field full">
+              <label data-i18n="contact_username">Юзернейм</label>
+              <input id="cContact" required data-ph-i18n="contact_username_ph" placeholder="@username"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3 data-i18n="custom_section_fulfill">Получение</h3>
+          <div class="form-grid">
+            <div class="field full">
+              <label data-i18n="fulfill_title">Способ получения</label>
+              <div class="choice-row">
+                <label class="choice-chip"><input type="radio" name="cFulfill" value="pickup" checked/> <span data-i18n="fulfill_pickup">Самовывоз</span></label>
+                <label class="choice-chip"><input type="radio" name="cFulfill" value="delivery"/> <span data-i18n="fulfill_delivery">Доставка</span></label>
+              </div>
+            </div>
+            <div class="field full" id="cPickupWrap">
+              <label data-i18n="map_pickup_point">Точка самовывоза</label>
+              <select id="cPickup"></select>
+            </div>
+            <div class="field full hidden" id="cMapField">
+              <label data-i18n="map_title">Карта</label>
+              <div class="ycs-map" id="customMap"></div>
+            </div>
+            <div class="field full" id="cAddressField">
+              <label data-i18n="map_address_manual">Адрес</label>
+              <input id="cAddress"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3 data-i18n="custom_section_pay">Оплата</h3>
+          <div class="form-grid">
+            <div class="field full">
+              <label data-i18n="pay_title">Оплата</label>
+              <div class="choice-row">
+                <label class="choice-chip"><input type="radio" name="cPay" value="card" checked/> <span data-i18n="pay_card">Карта</span></label>
+                <label class="choice-chip" id="cPayCashWrap"><input type="radio" name="cPay" value="cash"/> <span data-i18n="pay_cash">Наличные</span></label>
+              </div>
+              <p class="cs-note pay-hint hidden" id="cPayCardOnly" data-i18n="pay_card_only"></p>
+              <div class="pay-requisites" id="cPayRequisites"></div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-lg" type="submit" style="width:100%;margin-top:18px;" data-i18n="custom_submit">Отправить заявку</button>
+      </form>
+
+      <div class="order-ok hidden" id="customOk">
+        <p data-i18n="custom_ok">Продавец свяжется с вами либо через чат или по вашим контактным данным.</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer-root"></div>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/theme-apply.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/maps.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/custom-order.js"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Админ-панель — YoucanSmile</title>
+  <meta name="robots" content="noindex"/>
+  <link rel="icon" href="img/logo-ycs.png"/>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('ycs_theme') || 'sage';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'sage');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/styles.css"/>
+</head>
+<body class="admin-body">
+
+  <div class="admin-wrap">
+    <div class="admin-top">
+      <div class="container">
+        <a class="logo" href="index.html">You<span>can</span>Smile</a>
+        <span id="adminTopTitle" style="font-weight:700;"></span>
+        <button class="btn btn-sm hidden" id="logoutBtn" data-i18n="admin_logout_id">Выйти</button>
+      </div>
+    </div>
+
+    <!-- экран входа -->
+    <div class="login-card" id="loginCard">
+      <h2>🔐 <span data-i18n="admin_title_id">Админ-панель</span></h2>
+      <p data-i18n="admin_login_title_id">Вход для администратора</p>
+      <form id="loginForm">
+        <div class="field">
+          <label data-i18n="admin_email_id">Логин (admin)</label>
+          <input id="loginEmail" type="text" value="admin" autocomplete="username"/>
+        </div>
+        <div class="field">
+          <label data-i18n="admin_password_id">Пароль</label>
+          <input id="loginPass" type="password" autocomplete="current-password"/>
+        </div>
+        <p class="login-err hidden" id="loginErr" data-i18n="admin_bad_id">Неверный логин или пароль</p>
+        <button class="btn btn-primary" type="submit" data-i18n="admin_login_id">Войти</button>
+      </form>
+    </div>
+
+    <!-- рабочая область -->
+    <div class="container admin-layout hidden" id="adminLayout">
+      <nav class="admin-nav" id="adminNav">
+        <button class="active" data-tab="dash" data-i18n="admin_dash_id">Дашборд</button>
+        <button data-tab="products" data-i18n="admin_products_id">Товары</button>
+        <button data-tab="categories" data-i18n="admin_categories_id">Категории</button>
+        <button data-tab="orders" data-i18n="admin_orders_id">Заказы</button>
+        <button data-tab="settings" data-i18n="admin_settings_id">Настройки</button>
+      </nav>
+
+      <div class="admin-content" id="adminContent"></div>
+    </div>
+  </div>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/theme-apply.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
