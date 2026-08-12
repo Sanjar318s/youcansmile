@@ -33,6 +33,12 @@ module.exports = async (req, res) => {
         { customerId: me.id }
       );
       await saveOrder(order);
+      try {
+        const { notifySellerNewOrder } = require(require('path').resolve(process.cwd(), 'lib/telegram'));
+        await notifySellerNewOrder(order);
+      } catch (e) {
+        /* уведомление не должно ломать создание заказа */
+      }
       return json(res, 201, order);
     }
     return json(res, 405, { error: 'method' });

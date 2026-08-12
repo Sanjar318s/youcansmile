@@ -965,6 +965,9 @@
         { key: 'custom_section_pay', label: 'Секция: оплата' },
         { key: 'custom_submit', label: 'Кнопка отправки' },
         { key: 'custom_ok', label: 'Текст после заявки', area: true },
+        { key: 'custom_seller_note', label: 'Примечание: продавец свяжется', area: true },
+        { key: 'custom_success_title', label: 'Успех — заголовок' },
+        { key: 'custom_success_sub', label: 'Успех — подпись', area: true },
       ],
     },
     {
@@ -990,6 +993,7 @@
         { key: 'map_pickup_point', label: 'Точка самовывоза' },
         { key: 'map_title', label: 'Карта' },
         { key: 'map_address_manual', label: 'Адрес вручную' },
+        { key: 'map_confirm_addr', label: 'Кнопка «Подтвердить адрес»' },
         { key: 'pay_title', label: 'Способ оплаты' },
         { key: 'pay_card', label: 'Карта' },
         { key: 'pay_cash', label: 'Наличные' },

@@ -24,6 +24,13 @@ const Chat = (() => {
   let recCancel = false;
   let recPointerId = null;
   let recStartY = 0;
+  let recStarting = false;
+  let recStopQueued = false;
+  let recMime = '';
+  let voiceDocBound = false;
+  let locMapApi = null;
+  let locPending = null;
+  let locPickerGen = 0;
   let activeAudio = null;
   let delegated = false;
 
@@ -370,49 +377,169 @@ const Chat = (() => {
         reader.onerror = reject;
         reader.readAsDataURL(blob);
       });
-      const mime = blob.type || 'audio/webm';
+      const mime = blob.type || recMime || 'audio/webm';
       const up = await Api.uploadMedia(dataUrl, mime);
       await send({ type: 'voice', mediaUrl: up.url, replyToId: replyTo }, optimistic);
+      URL.revokeObjectURL(localUrl);
     } catch (_) {
+      URL.revokeObjectURL(localUrl);
       removeMessageNode(optimistic.id);
       UI.toast(I18n.t('chat_send_fail'));
-    } finally {
-      URL.revokeObjectURL(localUrl);
+    }
+  }
+
+  function loadMapsLib() {
+    if (typeof YcsMaps !== 'undefined') return Promise.resolve(YcsMaps);
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-ycs-maps]');
+      if (existing) {
+        existing.addEventListener('load', () => resolve(window.YcsMaps), { once: true });
+        existing.addEventListener('error', () => reject(new Error('maps')), { once: true });
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = 'js/maps.js?v=20260813d';
+      s.async = true;
+      s.dataset.ycsMaps = '1';
+      s.onload = () => resolve(window.YcsMaps);
+      s.onerror = () => reject(new Error('maps'));
+      document.head.appendChild(s);
+    });
+  }
+
+  function getGeoOnce() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve([pos.coords.latitude, pos.coords.longitude]),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+    });
+  }
+
+  function setLocConfirmEnabled(on) {
+    const btn = root?.querySelector('#chatLocConfirm');
+    if (btn) btn.disabled = !on;
+  }
+
+  function closeLocPicker() {
+    locPickerGen += 1;
+    const picker = root?.querySelector('#chatLocPicker');
+    if (picker) picker.classList.add('hidden');
+    document.body.classList.remove('chat-loc-open');
+    if (locMapApi && locMapApi.destroy) {
+      try {
+        locMapApi.destroy();
+      } catch (_) {}
+    }
+    locMapApi = null;
+    locPending = null;
+    setLocConfirmEnabled(false);
+    const mapEl = root?.querySelector('#chatLocMap');
+    if (mapEl) mapEl.innerHTML = '';
+  }
+
+  async function confirmLocPicker() {
+    if (!locPending || locPending.length < 2) return;
+    const lat = Number(locPending[0]);
+    const lng = Number(locPending[1]);
+    closeLocPicker();
+    const optimistic = {
+      id: 'tmp_' + Date.now().toString(36),
+      author: 'customer',
+      type: 'location',
+      lat,
+      lng,
+      replyToId: replyTo,
+      createdAt: Date.now(),
+      _pending: true,
+    };
+    appendMessages([optimistic], false);
+    hideQuickIfNeeded();
+    await send({ type: 'location', lat, lng, replyToId: replyTo }, optimistic);
+  }
+
+  async function openLocPicker() {
+    closeAttachMenu();
+    const picker = root?.querySelector('#chatLocPicker');
+    const mapEl = root?.querySelector('#chatLocMap');
+    if (!picker || !mapEl) return;
+    if (locMapApi && locMapApi.destroy) {
+      try {
+        locMapApi.destroy();
+      } catch (_) {}
+      locMapApi = null;
+    }
+    const gen = ++locPickerGen;
+    picker.classList.remove('hidden');
+    document.body.classList.add('chat-loc-open');
+    setLocConfirmEnabled(false);
+    locPending = null;
+    mapEl.innerHTML = `<div class="map-loading">${escape(I18n.t('map_loading'))}</div>`;
+
+    const [geo, settings] = await Promise.all([
+      getGeoOnce(),
+      Api.getSettings().catch(() => ({})),
+    ]);
+    if (gen !== locPickerGen) return;
+    const center = geo || (typeof YcsMaps !== 'undefined' ? YcsMaps.TASHKENT : [41.2995, 69.2401]);
+    locPending = center.slice();
+    setLocConfirmEnabled(true);
+
+    try {
+      await loadMapsLib();
+      if (gen !== locPickerGen) return;
+      const apiKey = settings?.yandexMapsKey || '';
+      if (locMapApi && locMapApi.destroy) {
+        try {
+          locMapApi.destroy();
+        } catch (_) {}
+      }
+      locMapApi = await YcsMaps.mount(mapEl, {
+        apiKey,
+        emitInitial: false,
+        initial: { coords: center },
+        onPending: ({ coords }) => {
+          if (!coords || coords.length < 2) return;
+          locPending = coords.slice();
+          setLocConfirmEnabled(true);
+        },
+        onPick: ({ coords }) => {
+          if (!coords || coords.length < 2) return;
+          locPending = coords.slice();
+          setLocConfirmEnabled(true);
+        },
+      });
+      if (gen !== locPickerGen) return;
+      if (!locMapApi?.hasMap) {
+        mapEl.innerHTML = `
+          <div class="chat-loc-fallback">
+            <div class="chat-loc-map" aria-hidden="true"><span class="chat-loc-pin">📍</span></div>
+            <p>${escape(I18n.t('chat_loc_pick_hint'))}</p>
+            <div class="chat-loc-coords">${center[0].toFixed(5)}, ${center[1].toFixed(5)}</div>
+          </div>`;
+      }
+    } catch (_) {
+      if (gen !== locPickerGen) return;
+      mapEl.innerHTML = `
+        <div class="chat-loc-fallback">
+          <div class="chat-loc-map" aria-hidden="true"><span class="chat-loc-pin">📍</span></div>
+          <p>${escape(I18n.t('chat_loc_pick_hint'))}</p>
+          <div class="chat-loc-coords">${center[0].toFixed(5)}, ${center[1].toFixed(5)}</div>
+        </div>`;
     }
   }
 
   function sendLocation() {
-    closeAttachMenu();
-    if (!navigator.geolocation) {
-      UI.toast(I18n.t('chat_geo_unavailable'));
-      return;
-    }
-    UI.toast(I18n.t('chat_location_send') + '…');
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        const optimistic = {
-          id: 'tmp_' + Date.now().toString(36),
-          author: 'customer',
-          type: 'location',
-          lat,
-          lng,
-          replyToId: replyTo,
-          createdAt: Date.now(),
-          _pending: true,
-        };
-        appendMessages([optimistic], false);
-        hideQuickIfNeeded();
-        await send({ type: 'location', lat, lng, replyToId: replyTo }, optimistic);
-      },
-      () => UI.toast(I18n.t('chat_geo_denied')),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
-    );
+    openLocPicker();
   }
 
   function pickRecorderMime() {
-    const candidates = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/aac'];
     for (const t of candidates) {
       if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
     }
@@ -445,63 +572,147 @@ const Chat = (() => {
     }, 250);
   }
 
+  function unbindVoiceDoc() {
+    if (!voiceDocBound) return;
+    voiceDocBound = false;
+    document.removeEventListener('pointerup', onDocVoiceEnd, true);
+    document.removeEventListener('pointercancel', onDocVoiceCancel, true);
+    document.removeEventListener('pointermove', onVoicePointerMove, true);
+  }
+
+  function bindVoiceDoc() {
+    if (voiceDocBound) return;
+    voiceDocBound = true;
+    document.addEventListener('pointerup', onDocVoiceEnd, true);
+    document.addEventListener('pointercancel', onDocVoiceCancel, true);
+    document.addEventListener('pointermove', onVoicePointerMove, true);
+  }
+
+  function onDocVoiceEnd(e) {
+    if (recPointerId == null || e.pointerId !== recPointerId) return;
+    const y = e.clientY;
+    const cancel = y != null && recStartY - y > 56;
+    finishRecord(cancel);
+  }
+
+  function onDocVoiceCancel(e) {
+    if (recPointerId == null || (e.pointerId != null && e.pointerId !== recPointerId)) return;
+    finishRecord(true);
+  }
+
+  function cleanupRecUi() {
+    setRecordingUI(false);
+    stopRecTimer();
+    root?.querySelector('#chatVoiceBtn')?.classList.remove('holding');
+    unbindVoiceDoc();
+    recPointerId = null;
+    recStarting = false;
+    recStopQueued = false;
+  }
+
   async function beginRecord(pointerId, clientY) {
-    if (recorder && recorder.state === 'recording') return;
+    if (recorder || recStarting) return;
+    if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+      UI.toast(I18n.t('chat_mic_unavailable'));
+      return;
+    }
+    recStarting = true;
+    recStopQueued = false;
     recCancel = false;
     recPointerId = pointerId;
     recStartY = clientY;
+    bindVoiceDoc();
+    setRecordingUI(true);
+    root?.querySelector('#chatVoiceBtn')?.classList.add('holding');
     try {
-      recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
+      if (recPointerId !== pointerId || recCancel) {
+        recStream.getTracks().forEach((t) => t.stop());
+        recStream = null;
+        cleanupRecUi();
+        return;
+      }
       recChunks = [];
-      const mime = pickRecorderMime();
-      recorder = mime ? new MediaRecorder(recStream, { mimeType: mime }) : new MediaRecorder(recStream);
-      recorder.ondataavailable = (e) => {
+      recMime = pickRecorderMime();
+      const rec = recMime ? new MediaRecorder(recStream, { mimeType: recMime }) : new MediaRecorder(recStream);
+      recorder = rec;
+      recMime = rec.mimeType || recMime || 'audio/webm';
+      rec.ondataavailable = (e) => {
         if (e.data && e.data.size) recChunks.push(e.data);
       };
-      recorder.onstop = async () => {
-        const durationSec = Math.max(1, Math.round((Date.now() - recStartedAt) / 1000));
+      rec.onstop = async () => {
+        const started = recStartedAt || Date.now();
+        const durationSec = Math.round((Date.now() - started) / 1000);
         const tracks = recStream ? recStream.getTracks() : [];
         tracks.forEach((t) => t.stop());
         recStream = null;
-        setRecordingUI(false);
-        stopRecTimer();
-        const btn = root?.querySelector('#chatVoiceBtn');
-        btn?.classList.remove('holding');
-        if (recCancel) {
-          recChunks = [];
-          return;
-        }
-        if (durationSec < 1) {
+        cleanupRecUi();
+        const cancelled = recCancel;
+        const chunks = recChunks;
+        recChunks = [];
+        if (cancelled) return;
+        if (durationSec < 1 || !chunks.length) {
           UI.toast(I18n.t('chat_voice_too_short'));
           return;
         }
-        const blob = new Blob(recChunks, { type: recorder.mimeType || mime || 'audio/webm' });
-        await sendVoiceBlob(blob, durationSec);
+        const blob = new Blob(chunks, { type: recMime || 'audio/webm' });
+        if (!blob.size) {
+          UI.toast(I18n.t('chat_voice_too_short'));
+          return;
+        }
+        await sendVoiceBlob(blob, Math.max(1, durationSec));
       };
-      recorder.start(100);
-      setRecordingUI(true);
       startRecTimer();
-      root?.querySelector('#chatVoiceBtn')?.classList.add('holding');
+      try {
+        rec.start(200);
+      } catch (_) {
+        rec.start();
+      }
+      recStarting = false;
+      if (recStopQueued) {
+        const cancel = recCancel;
+        recStopQueued = false;
+        finishRecord(cancel);
+      }
     } catch (_) {
       UI.toast(I18n.t('chat_mic_unavailable'));
-      setRecordingUI(false);
+      if (recStream) {
+        recStream.getTracks().forEach((t) => t.stop());
+        recStream = null;
+      }
+      cleanupRecUi();
+    } finally {
+      recStarting = false;
     }
   }
 
   function finishRecord(cancel) {
     recCancel = !!cancel;
-    if (recorder && recorder.state === 'recording') recorder.stop();
-    else {
-      setRecordingUI(false);
-      stopRecTimer();
-      root?.querySelector('#chatVoiceBtn')?.classList.remove('holding');
+    if (recStarting && !recorder) {
+      recStopQueued = true;
+      return;
     }
+    const rec = recorder;
     recorder = null;
-    recPointerId = null;
+    if (rec && (rec.state === 'recording' || rec.state === 'paused')) {
+      try {
+        rec.requestData?.();
+      } catch (_) {}
+      try {
+        rec.stop();
+      } catch (_) {
+        cleanupRecUi();
+      }
+      return;
+    }
+    cleanupRecUi();
   }
 
   function onVoicePointerMove(e) {
     if (recPointerId == null) return;
+    if (e.pointerId != null && e.pointerId !== recPointerId) return;
     const y = e.clientY ?? (e.touches && e.touches[0]?.clientY);
     if (y == null) return;
     const dy = recStartY - y;
@@ -514,30 +725,17 @@ const Chat = (() => {
   }
 
   function bindVoiceHold(btn) {
-    let armed = false;
+    if (!btn) return;
     const arm = (e) => {
       if (e.button != null && e.button !== 0) return;
       if (btn.classList.contains('hidden')) return;
       e.preventDefault();
-      armed = true;
-      btn.setPointerCapture?.(e.pointerId);
+      try {
+        btn.setPointerCapture?.(e.pointerId);
+      } catch (_) {}
       beginRecord(e.pointerId, e.clientY);
     };
     btn.addEventListener('pointerdown', arm);
-    btn.addEventListener('pointermove', onVoicePointerMove);
-    const end = (e) => {
-      if (!armed && recPointerId == null) return;
-      if (recPointerId != null && e.pointerId !== recPointerId) return;
-      armed = false;
-      const y = e.clientY;
-      const cancel = y != null && recStartY - y > 56;
-      finishRecord(cancel);
-    };
-    btn.addEventListener('pointerup', end);
-    btn.addEventListener('pointercancel', () => {
-      armed = false;
-      finishRecord(true);
-    });
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
     btn.addEventListener('click', (e) => e.preventDefault());
   }
@@ -623,6 +821,21 @@ const Chat = (() => {
             <button type="button" class="chat-action-btn chat-voice-btn" id="chatVoiceBtn" title="${I18n.t('chat_voice_hold')}" aria-label="${I18n.t('chat_voice_hold')}">🎤</button>
           </div>
         </div>
+        <div class="chat-loc-picker hidden" id="chatLocPicker" role="dialog" aria-modal="true" aria-label="${I18n.t('chat_loc_pick_title')}">
+          <div class="chat-loc-picker-backdrop" id="chatLocBackdrop"></div>
+          <div class="chat-loc-picker-sheet">
+            <div class="chat-loc-picker-head">
+              <b>${I18n.t('chat_loc_pick_title')}</b>
+              <button type="button" class="icon-btn chat-close" id="chatLocClose" aria-label="close">×</button>
+            </div>
+            <p class="chat-loc-picker-hint">${I18n.t('chat_loc_pick_hint')}</p>
+            <div class="chat-loc-picker-map ycs-map" id="chatLocMap"></div>
+            <div class="chat-loc-picker-actions">
+              <button type="button" class="btn btn-ghost" id="chatLocCancel">${I18n.t('chat_loc_cancel')}</button>
+              <button type="button" class="btn btn-primary" id="chatLocConfirm" disabled>${I18n.t('chat_loc_confirm')}</button>
+            </div>
+          </div>
+        </div>
       </div>`;
     document.body.appendChild(root);
     panel = root.querySelector('#chatPanel');
@@ -686,6 +899,12 @@ const Chat = (() => {
     cameraInput.addEventListener('change', () => onPhoto(cameraInput));
     bindVoiceHold(root.querySelector('#chatVoiceBtn'));
     root.querySelector('#chatLocBtn').addEventListener('click', sendLocation);
+    root.querySelector('#chatLocClose')?.addEventListener('click', closeLocPicker);
+    root.querySelector('#chatLocCancel')?.addEventListener('click', closeLocPicker);
+    root.querySelector('#chatLocBackdrop')?.addEventListener('click', closeLocPicker);
+    root.querySelector('#chatLocConfirm')?.addEventListener('click', () => {
+      confirmLocPicker().catch(() => UI.toast(I18n.t('chat_send_fail')));
+    });
 
     root.querySelector('#chatQuick').addEventListener('click', (e) => {
       const chip = e.target.closest('[data-quick]');

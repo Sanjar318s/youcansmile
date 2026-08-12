@@ -24,12 +24,14 @@ const YcsMaps = (() => {
 
   /**
    * @param {HTMLElement} el
-   * @param {{ apiKey?: string, onPick?: (data:{coords:number[],address:string})=>void, initial?: {coords?:number[],address?:string} }} opts
+   * @param {{ apiKey?: string, confirm?: boolean, confirmLabel?: string, onPick?: (data:{coords:number[],address:string})=>void, onPending?: (data:{coords:number[]})=>void, initial?: {coords?:number[],address?:string} }} opts
    */
   async function mount(el, opts = {}) {
     if (!el) return null;
     const onPick = opts.onPick || (() => {});
+    const onPending = opts.onPending || (() => {});
     const initial = opts.initial || {};
+    const confirm = opts.confirm === true;
 
     if (!opts.apiKey) {
       el.innerHTML = `<div class="map-fallback" data-i18n="map_no_key">${typeof I18n !== 'undefined' ? I18n.t('map_no_key') : 'Укажите ключ Яндекс.Карт в админке или введите адрес вручную.'}</div>`;
@@ -44,6 +46,19 @@ const YcsMaps = (() => {
       mapNode.className = 'ycs-map-canvas';
       el.appendChild(mapNode);
 
+      let confirmBtn = null;
+      let pendingCoords = null;
+      if (confirm) {
+        confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'map-confirm-btn';
+        confirmBtn.textContent =
+          opts.confirmLabel ||
+          (typeof I18n !== 'undefined' ? I18n.t('map_confirm_addr') : 'Подтвердить адрес');
+        confirmBtn.hidden = true;
+        el.appendChild(confirmBtn);
+      }
+
       const center = initial.coords && initial.coords.length === 2 ? initial.coords : TASHKENT;
       const map = new ymaps.Map(mapNode, {
         center,
@@ -53,27 +68,55 @@ const YcsMaps = (() => {
       let placemark = new ymaps.Placemark(center, {}, { draggable: true });
       map.geoObjects.add(placemark);
 
-      async function emit(coords) {
-        let address = '';
+      async function geocode(coords) {
         try {
           const res = await ymaps.geocode(coords);
           const first = res.geoObjects.get(0);
-          address = first ? first.getAddressLine() : '';
+          return first ? first.getAddressLine() : '';
         } catch (e) {
-          address = coords.map((n) => n.toFixed(5)).join(', ');
+          return coords.map((n) => n.toFixed(5)).join(', ');
         }
+      }
+
+      async function emit(coords) {
+        const address = await geocode(coords);
         onPick({ coords, address });
       }
 
-      if (initial.coords) emit(initial.coords);
+      function schedule(coords) {
+        pendingCoords = coords;
+        if (confirmBtn) confirmBtn.hidden = false;
+        onPending({ coords });
+      }
+
+      async function confirmPick() {
+        if (!pendingCoords) return;
+        const coords = pendingCoords;
+        pendingCoords = null;
+        if (confirmBtn) confirmBtn.hidden = true;
+        await emit(coords);
+      }
+
+      if (confirmBtn) confirmBtn.addEventListener('click', confirmPick);
+
+      if (initial.coords) {
+        // In confirm mode (or emitInitial:false) only preview the pin — user must confirm.
+        if (confirm || opts.emitInitial === false) {
+          pendingCoords = initial.coords.slice();
+          if (confirmBtn) confirmBtn.hidden = false;
+          onPending({ coords: pendingCoords });
+        } else {
+          emit(initial.coords);
+        }
+      }
 
       map.events.add('click', (e) => {
         const coords = e.get('coords');
         placemark.geometry.setCoordinates(coords);
-        emit(coords);
+        schedule(coords);
       });
       placemark.events.add('dragend', () => {
-        emit(placemark.geometry.getCoordinates());
+        schedule(placemark.geometry.getCoordinates());
       });
 
       return {
