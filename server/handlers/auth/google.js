@@ -1,4 +1,4 @@
-const { cors, redirect, baseUrl } = require('../lib/http');
+const { cors, redirect, baseUrl } = require(require('path').resolve(process.cwd(), 'lib/http'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;

@@ -1,10 +1,10 @@
-const { cors, json, readBody } = require('../../lib/http');
-const { getSessionUser } = require('../../lib/auth');
-const { uid } = require('../../lib/db');
-const { getCustomerOrders } = require('../../lib/data');
-const { getOrCreateThread, saveMessage, setNeedsSeller } = require('../../lib/chat');
-const { aiReply } = require('../../lib/ai');
-const { notifySellerMessage } = require('../../lib/telegram');
+const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { getSessionUser } = require(require('path').resolve(process.cwd(), 'lib/auth'));
+const { uid } = require(require('path').resolve(process.cwd(), 'lib/db'));
+const { getCustomerOrders } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const { getOrCreateThread, saveMessage, setNeedsSeller } = require(require('path').resolve(process.cwd(), 'lib/chat'));
+const { aiReply } = require(require('path').resolve(process.cwd(), 'lib/ai'));
+const { notifySellerMessage } = require(require('path').resolve(process.cwd(), 'lib/telegram'));
 
 function toTelegramMsg(msg) {
   return {

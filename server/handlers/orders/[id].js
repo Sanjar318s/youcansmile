@@ -1,6 +1,6 @@
-const { cors, json, readBody } = require('../../lib/http');
-const { getOrder, saveOrder } = require('../../lib/data');
-const { getSessionUser } = require('../../lib/auth');
+const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { getOrder, saveOrder } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const { getSessionUser } = require(require('path').resolve(process.cwd(), 'lib/auth'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;

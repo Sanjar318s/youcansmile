@@ -1,6 +1,6 @@
-const { cors, json, readBody } = require('../lib/http');
-const { registerCustomer, createSession } = require('../lib/auth');
-const { ensureSeeded } = require('../lib/seed');
+const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { registerCustomer, createSession } = require(require('path').resolve(process.cwd(), 'lib/auth'));
+const { ensureSeeded } = require(require('path').resolve(process.cwd(), 'lib/seed'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;

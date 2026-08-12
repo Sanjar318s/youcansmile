@@ -1,6 +1,6 @@
-const { cors, json, readBody } = require('../lib/http');
-const { uid } = require('../lib/db');
-const { saveMedia, getMedia } = require('../lib/chat');
+const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { uid } = require(require('path').resolve(process.cwd(), 'lib/db'));
+const { saveMedia, getMedia } = require(require('path').resolve(process.cwd(), 'lib/chat'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;

@@ -1,7 +1,7 @@
-const { cors, json, readBody } = require('../lib/http');
-const { ensureSeeded } = require('../lib/seed');
-const { getOrders, saveOrder, uid } = require('../lib/data');
-const { getSessionUser } = require('../lib/auth');
+const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { ensureSeeded } = require(require('path').resolve(process.cwd(), 'lib/seed'));
+const { getOrders, saveOrder, uid } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const { getSessionUser } = require(require('path').resolve(process.cwd(), 'lib/auth'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
       const me = await getSessionUser(req);
       if (me && me.role === 'admin') return json(res, 200, await getOrders());
       if (me && me.role === 'customer') {
-        const { getCustomerOrders } = require('../lib/data');
+        const { getCustomerOrders } = require(require('path').resolve(process.cwd(), 'lib/data'));
         return json(res, 200, await getCustomerOrders(me.id, me.phone));
       }
       return json(res, 401, { error: 'auth' });

@@ -1,6 +1,6 @@
-const { cors, json, readBody } = require('../lib/http');
-const { ensureSeeded } = require('../lib/seed');
-const { getCategories, saveCategory, deleteCategory, uid } = require('../lib/data');
+const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { ensureSeeded } = require(require('path').resolve(process.cwd(), 'lib/seed'));
+const { getCategories, saveCategory, deleteCategory, uid } = require(require('path').resolve(process.cwd(), 'lib/data'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;

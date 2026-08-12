@@ -1,5 +1,5 @@
-const { cors, json, readBody } = require('../lib/http');
-const { getReviews, saveReview, getOrder, uid, normPhone } = require('../lib/data');
+const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { getReviews, saveReview, getOrder, uid, normPhone } = require(require('path').resolve(process.cwd(), 'lib/data'));
 
 function orderHasProduct(order, productId) {
   return !!(order && Array.isArray(order.items) && order.items.some((i) => i.productId === productId));

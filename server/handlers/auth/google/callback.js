@@ -1,5 +1,5 @@
-const { cors, redirect, baseUrl, text } = require('../../lib/http');
-const { upsertGoogleCustomer, createSession } = require('../../lib/auth');
+const { cors, redirect, baseUrl, text } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { upsertGoogleCustomer, createSession } = require(require('path').resolve(process.cwd(), 'lib/auth'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;

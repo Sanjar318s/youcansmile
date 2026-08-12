@@ -1,6 +1,6 @@
-const { cors, json } = require('../lib/http');
-const { runSchema } = require('../../lib/db');
-const { ensureSeeded } = require('../../lib/seed');
+const { cors, json } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { runSchema } = require(require('path').resolve(process.cwd(), 'lib/db'));
+const { ensureSeeded } = require(require('path').resolve(process.cwd(), 'lib/seed'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;

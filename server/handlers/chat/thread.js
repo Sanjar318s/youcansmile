@@ -1,6 +1,6 @@
-const { cors, json } = require('../../lib/http');
-const { getSessionUser } = require('../../lib/auth');
-const { getOrCreateThread, getMessages } = require('../../lib/chat');
+const { cors, json } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { getSessionUser } = require(require('path').resolve(process.cwd(), 'lib/auth'));
+const { getOrCreateThread, getMessages } = require(require('path').resolve(process.cwd(), 'lib/chat'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;

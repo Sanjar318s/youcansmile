@@ -1,7 +1,7 @@
-const { cors, json, readBody, text } = require('../../lib/http');
-const { uid } = require('../../lib/db');
-const { saveMessage, getThreadById } = require('../../lib/chat');
-const { sendTelegram } = require('../../lib/telegram');
+const { cors, json, readBody, text } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { uid } = require(require('path').resolve(process.cwd(), 'lib/db'));
+const { saveMessage, getThreadById } = require(require('path').resolve(process.cwd(), 'lib/chat'));
+const { sendTelegram } = require(require('path').resolve(process.cwd(), 'lib/telegram'));
 
 function parsePrefix(raw) {
   const s = String(raw || '');
@@ -64,7 +64,7 @@ module.exports = async (req, res) => {
       const file = msg.photo[msg.photo.length - 1];
       const dl = await downloadTelegramFile(file.file_id);
       if (dl) {
-        const { saveMedia } = require('../../lib/chat');
+        const { saveMedia } = require(require('path').resolve(process.cwd(), 'lib/chat'));
         const mediaId = uid('md');
         await saveMedia({ id: mediaId, mime: dl.mime, data: dl.data });
         mediaUrl = `/api/media?id=${mediaId}`;
@@ -73,7 +73,7 @@ module.exports = async (req, res) => {
       type = 'voice';
       const dl = await downloadTelegramFile(msg.voice.file_id);
       if (dl) {
-        const { saveMedia } = require('../../lib/chat');
+        const { saveMedia } = require(require('path').resolve(process.cwd(), 'lib/chat'));
         const mediaId = uid('md');
         await saveMedia({ id: mediaId, mime: dl.mime, data: dl.data });
         mediaUrl = `/api/media?id=${mediaId}`;

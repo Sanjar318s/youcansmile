@@ -1,5 +1,5 @@
-const { cors, json } = require('../lib/http');
-const { destroySession } = require('../lib/auth');
+const { cors, json } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { destroySession } = require(require('path').resolve(process.cwd(), 'lib/auth'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
