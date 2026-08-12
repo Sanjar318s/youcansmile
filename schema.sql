@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS customers (
   email TEXT,
   password_hash TEXT,
   google_id TEXT UNIQUE,
+  profile TEXT,
   created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 );
 CREATE INDEX IF NOT EXISTS idx_customers_google ON customers(google_id);
@@ -68,6 +69,7 @@ CREATE TABLE IF NOT EXISTS chat_threads (
   id TEXT PRIMARY KEY,
   customer_id TEXT NOT NULL,
   needs_seller INTEGER NOT NULL DEFAULT 0,
+  seller_connected INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 );

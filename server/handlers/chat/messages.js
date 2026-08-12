@@ -1,10 +1,18 @@
 const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
 const { getSessionUser } = require(require('path').resolve(process.cwd(), 'lib/auth'));
 const { uid } = require(require('path').resolve(process.cwd(), 'lib/db'));
-const { getCustomerOrders } = require(require('path').resolve(process.cwd(), 'lib/data'));
-const { getOrCreateThread, saveMessage, setNeedsSeller } = require(require('path').resolve(process.cwd(), 'lib/chat'));
+const { getCustomerOrders, getSettings } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const {
+  getOrCreateThread,
+  saveMessage,
+  setNeedsSeller,
+} = require(require('path').resolve(process.cwd(), 'lib/chat'));
 const { aiReply } = require(require('path').resolve(process.cwd(), 'lib/ai'));
-const { notifySellerMessage } = require(require('path').resolve(process.cwd(), 'lib/telegram'));
+const {
+  notifySellerLive,
+  notifySellerRequest,
+  notifySellerBotAnswer,
+} = require(require('path').resolve(process.cwd(), 'lib/telegram'));
 
 function toTelegramMsg(msg) {
   return {
@@ -26,7 +34,9 @@ module.exports = async (req, res) => {
     if (!me || me.role !== 'customer') return json(res, 401, { error: 'auth' });
     const body = (await readBody(req)) || {};
     const thread = await getOrCreateThread(me.id);
-    const customer = { name: me.name, phone: me.phone };
+    const customer = { name: me.name, phone: me.phone, email: me.email };
+    const connected = !!Number(thread.seller_connected);
+    const settings = (await getSettings()) || {};
 
     const msg = {
       id: uid('m'),
@@ -49,13 +59,13 @@ module.exports = async (req, res) => {
     }
 
     await saveMessage(msg);
-    await notifySellerMessage(toTelegramMsg(msg), customer, thread.id);
-
     const out = [msg];
     const orders = await getCustomerOrders(me.id, me.phone);
+    let needsSeller = !!Number(thread.needs_seller);
 
     if (msg.type === 'text' && msg.text) {
-      const { answer, escalate } = await aiReply(msg.text, orders);
+      const { answer, escalate } = await aiReply(msg.text, orders, settings);
+
       if (answer) {
         const agentMsg = {
           id: uid('m'),
@@ -66,32 +76,53 @@ module.exports = async (req, res) => {
           createdAt: Date.now(),
         };
         await saveMessage(agentMsg);
-        await notifySellerMessage(toTelegramMsg(agentMsg), { name: 'ИИ-агент' }, thread.id);
         out.push(agentMsg);
-      }
-      if (escalate) {
+        if (connected) {
+          await notifySellerLive(toTelegramMsg(msg), customer, thread.id);
+          await notifySellerBotAnswer(answer, customer, thread.id, agentMsg.id);
+        }
+        // FAQ answered — do not escalate / spam seller
+      } else if (escalate) {
         await setNeedsSeller(thread.id, true);
-        const escMsg = {
+        needsSeller = true;
+        if (connected) {
+          await notifySellerLive(toTelegramMsg(msg), customer, thread.id);
+        } else {
+          const escMsg = {
+            id: uid('m'),
+            threadId: thread.id,
+            author: 'agent',
+            type: 'text',
+            text: 'Передаю ваш вопрос продавцу. Он подключится и ответит здесь.',
+            createdAt: Date.now(),
+          };
+          await saveMessage(escMsg);
+          out.push(escMsg);
+          await notifySellerRequest(toTelegramMsg(msg), customer, thread.id);
+        }
+      }
+    } else {
+      // media / location — seller usually needed
+      await setNeedsSeller(thread.id, true);
+      needsSeller = true;
+      if (connected) {
+        await notifySellerLive(toTelegramMsg(msg), customer, thread.id);
+      } else {
+        const tip = {
           id: uid('m'),
           threadId: thread.id,
           author: 'agent',
           type: 'text',
-          text: 'Передаю ваш вопрос продавцу. Скоро ответит.',
+          text: 'Получил файл/локацию — передаю продавцу.',
           createdAt: Date.now(),
         };
-        await saveMessage(escMsg);
-        await notifySellerMessage(
-          toTelegramMsg(Object.assign({}, escMsg, { text: `⚠️ Эскалация\n${msg.text}` })),
-          customer,
-          thread.id
-        );
-        out.push(escMsg);
+        await saveMessage(tip);
+        out.push(tip);
+        await notifySellerRequest(toTelegramMsg(msg), customer, thread.id);
       }
-    } else if (msg.type !== 'text') {
-      await setNeedsSeller(thread.id, true);
     }
 
-    return json(res, 201, { ok: true, messages: out, needsSeller: !!thread.needs_seller });
+    return json(res, 201, { ok: true, messages: out, needsSeller });
   } catch (e) {
     return json(res, 500, { error: e.message });
   }

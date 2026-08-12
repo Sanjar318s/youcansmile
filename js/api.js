@@ -16,6 +16,37 @@ const Api = {
   })(),
   baseUrl: '',
 
+  _mem: Object.create(null),
+  _memInflight: Object.create(null),
+
+  _cacheGet(key, loader) {
+    if (Object.prototype.hasOwnProperty.call(this._mem, key)) {
+      return Promise.resolve(this._mem[key]);
+    }
+    if (!this._memInflight[key]) {
+      this._memInflight[key] = Promise.resolve()
+        .then(loader)
+        .then((value) => {
+          this._mem[key] = value;
+          delete this._memInflight[key];
+          return value;
+        })
+        .catch((err) => {
+          delete this._memInflight[key];
+          throw err;
+        });
+    }
+    return this._memInflight[key];
+  },
+
+  invalidateCache(keys) {
+    const list = keys && keys.length ? keys : Object.keys(this._mem).concat(Object.keys(this._memInflight));
+    list.forEach((k) => {
+      delete this._mem[k];
+      delete this._memInflight[k];
+    });
+  },
+
   KEYS: {
     products: 'ycs_products',
     categories: 'ycs_categories',
@@ -95,15 +126,29 @@ const Api = {
 
   /* --------------------------- товары ----------------------- */
   async getProducts() {
-    if (this.mode === 'remote') return this._remote('/api/products');
+    if (this.mode === 'remote') {
+      return this._cacheGet('products', () => this._remote('/api/products'));
+    }
     return this._ls(this.KEYS.products, []);
   },
   async getProduct(id) {
+    if (this.mode === 'remote') {
+      try {
+        return await this._remote('/api/products/' + encodeURIComponent(id));
+      } catch (_) {
+        const all = await this.getProducts();
+        return all.find((p) => p.id === id) || null;
+      }
+    }
     const all = await this.getProducts();
     return all.find((p) => p.id === id) || null;
   },
   async createProduct(data) {
-    if (this.mode === 'remote') return this._remote('/api/products', 'POST', data);
+    if (this.mode === 'remote') {
+      const product = await this._remote('/api/products', 'POST', data);
+      this.invalidateCache(['products']);
+      return product;
+    }
     const all = this._ls(this.KEYS.products, []);
     const product = Object.assign(
       { id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), createdAt: Date.now() },
@@ -114,7 +159,11 @@ const Api = {
     return product;
   },
   async updateProduct(id, patch) {
-    if (this.mode === 'remote') return this._remote('/api/products/' + id, 'PATCH', patch);
+    if (this.mode === 'remote') {
+      const product = await this._remote('/api/products/' + id, 'PATCH', patch);
+      this.invalidateCache(['products']);
+      return product;
+    }
     const all = this._ls(this.KEYS.products, []);
     const idx = all.findIndex((p) => p.id === id);
     if (idx === -1) throw new Error('not found');
@@ -123,7 +172,11 @@ const Api = {
     return all[idx];
   },
   async deleteProduct(id) {
-    if (this.mode === 'remote') return this._remote('/api/products/' + id, 'DELETE');
+    if (this.mode === 'remote') {
+      const ok = await this._remote('/api/products/' + id, 'DELETE');
+      this.invalidateCache(['products']);
+      return ok;
+    }
     const all = this._ls(this.KEYS.products, []).filter((p) => p.id !== id);
     this._save(this.KEYS.products, all);
     return true;
@@ -131,11 +184,17 @@ const Api = {
 
   /* ------------------------- категории ----------------------- */
   async getCategories() {
-    if (this.mode === 'remote') return this._remote('/api/categories');
+    if (this.mode === 'remote') {
+      return this._cacheGet('categories', () => this._remote('/api/categories'));
+    }
     return this._ls(this.KEYS.categories, []);
   },
   async createCategory(data) {
-    if (this.mode === 'remote') return this._remote('/api/categories', 'POST', data);
+    if (this.mode === 'remote') {
+      const cat = await this._remote('/api/categories', 'POST', data);
+      this.invalidateCache(['categories']);
+      return cat;
+    }
     const all = this._ls(this.KEYS.categories, []);
     const cat = Object.assign(
       { id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5) },
@@ -146,7 +205,11 @@ const Api = {
     return cat;
   },
   async updateCategory(id, patch) {
-    if (this.mode === 'remote') return this._remote('/api/categories/' + id, 'PATCH', patch);
+    if (this.mode === 'remote') {
+      const cat = await this._remote('/api/categories/' + id, 'PATCH', patch);
+      this.invalidateCache(['categories']);
+      return cat;
+    }
     const all = this._ls(this.KEYS.categories, []);
     const idx = all.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('not found');
@@ -155,14 +218,20 @@ const Api = {
     return all[idx];
   },
   async deleteCategory(id) {
-    if (this.mode === 'remote') return this._remote('/api/categories/' + id, 'DELETE');
+    if (this.mode === 'remote') {
+      const ok = await this._remote('/api/categories/' + id, 'DELETE');
+      this.invalidateCache(['categories']);
+      return ok;
+    }
     this._save(this.KEYS.categories, this._ls(this.KEYS.categories, []).filter((c) => c.id !== id));
     return true;
   },
 
   /* -------------------------- настройки ---------------------- */
   async getSettings() {
-    if (this.mode === 'remote') return this._remote('/api/settings');
+    if (this.mode === 'remote') {
+      return this._cacheGet('settings', () => this._remote('/api/settings'));
+    }
     const seed = Seed.settings();
     const s = this._ls(this.KEYS.settings, seed);
     return Object.assign({}, seed, s, {
@@ -185,7 +254,11 @@ const Api = {
     });
   },
   async saveSettings(s) {
-    if (this.mode === 'remote') return this._remote('/api/settings', 'PUT', s);
+    if (this.mode === 'remote') {
+      const saved = await this._remote('/api/settings', 'PUT', s);
+      this.invalidateCache(['settings']);
+      return saved;
+    }
     this._save(this.KEYS.settings, s);
     return s;
   },
@@ -249,8 +322,10 @@ const Api = {
   },
   async getReviews(productId) {
     if (this.mode === 'remote') {
-      const q = productId ? '?productId=' + encodeURIComponent(productId) : '';
-      return this._remote('/api/reviews' + q);
+      if (productId) {
+        return this._remote('/api/reviews?productId=' + encodeURIComponent(productId));
+      }
+      return this._cacheGet('reviews', () => this._remote('/api/reviews'));
     }
     const all = this._ls(this.KEYS.reviews, []);
     if (!productId) return all;
@@ -258,8 +333,9 @@ const Api = {
   },
   async getRatingsMap() {
     const all = await this.getReviews();
+    const list = Array.isArray(all) ? all : [];
     const map = {};
-    all.forEach((r) => {
+    list.forEach((r) => {
       const id = r.productId;
       if (!id) return;
       if (!map[id]) map[id] = { sum: 0, count: 0, avg: 0 };
@@ -273,7 +349,11 @@ const Api = {
     return map;
   },
   async createReview(data) {
-    if (this.mode === 'remote') return this._remote('/api/reviews', 'POST', data);
+    if (this.mode === 'remote') {
+      const review = await this._remote('/api/reviews', 'POST', data);
+      this.invalidateCache(['reviews']);
+      return review;
+    }
     const productId = String((data && data.productId) || '').trim();
     const orderId = String((data && data.orderId) || '').replace(/^#/, '').trim();
     const phone = this._normPhone(data && data.phone);
@@ -359,6 +439,25 @@ const Api = {
       }
     }
     return this._ls(this.KEYS.session, null);
+  },
+
+  async updateProfile(patch) {
+    if (this.mode === 'remote') {
+      try {
+        return await this._remote('/api/auth/profile', 'PUT', patch);
+      } catch (e) {
+        // Some hosts reject PUT — fall back to POST
+        if (String(e.message || '').includes('405') || String(e.message || '').includes('method')) {
+          return this._remote('/api/auth/profile', 'POST', patch);
+        }
+        throw e;
+      }
+    }
+    const me = this._ls(this.KEYS.session, null);
+    if (!me || me.role !== 'customer') throw new Error('auth');
+    const next = Object.assign({}, me, patch);
+    this._save(this.KEYS.session, next);
+    return { ok: true, user: next };
   },
 
   async getMyOrders() {
@@ -456,49 +555,49 @@ const Seed = (() => {
     const now = Date.now();
     return [
       {
-        id: 'p-keychain-smile', categoryId: 'keychains', featured: true, inStock: true, createdAt: now, gender: 'unisex',
+        id: 'p-keychain-smile', categoryId: 'keychains', featured: true, inStock: true, createdAt: now,
         price: 45000, oldPrice: null, tags: ['keychain', 'handmade'], images: [IMG.keychain],
         title: tri('Брелок Smile', 'Smile brelok', 'Smile Keychain'),
         desc: tri('Милый брелок ручной работы.', "Qo'lda yasalgan brelok.", 'Cute handmade keychain.'),
       },
       {
-        id: 'p-keychain-heart', categoryId: 'keychains', featured: true, inStock: true, createdAt: now, gender: 'unisex',
+        id: 'p-keychain-heart', categoryId: 'keychains', featured: true, inStock: true, createdAt: now,
         price: 52000, oldPrice: 60000, tags: ['keychain', 'heart'], images: [IMG.pinBadge],
         title: tri('Брелок-сердечко', 'Yurak brelok', 'Heart Keychain'),
         desc: tri('Компактный брелок с сердечком.', 'Yurakcha bilan brelok.', 'Compact heart keychain.'),
       },
       {
-        id: 'p-pendant-crystal', categoryId: 'pendants', featured: true, inStock: true, createdAt: now, gender: 'female',
+        id: 'p-pendant-crystal', categoryId: 'pendants', featured: true, inStock: true, createdAt: now,
         price: 150000, oldPrice: null, tags: ['pendant', 'necklace'], images: [IMG.jewelry],
         title: tri('Кулон Crystal', 'Crystal kulon', 'Crystal Pendant'),
         desc: tri('Нежный кулон ручной работы.', "Qo'lda yasalgan nozik kulon.", 'Delicate handmade pendant.'),
       },
       {
-        id: 'p-pendant-charm', categoryId: 'pendants', featured: true, inStock: true, createdAt: now, gender: 'female',
+        id: 'p-pendant-charm', categoryId: 'pendants', featured: true, inStock: true, createdAt: now,
         price: 135000, oldPrice: null, tags: ['pendant', 'charm'], images: [IMG.jewelry],
         title: tri('Кулон Charm', 'Charm kulon', 'Charm Pendant'),
         desc: tri('Кулон для повседневного образа и подарка.', 'Kundalik va sovg‘a uchun kulon.', 'Everyday charm pendant.'),
       },
       {
-        id: 'p-choker-sage', categoryId: 'chokers', featured: true, inStock: true, createdAt: now, gender: 'female',
+        id: 'p-choker-sage', categoryId: 'chokers', featured: true, inStock: true, createdAt: now,
         price: 110000, oldPrice: null, tags: ['choker'], images: [IMG.choker],
         title: tri('Чокер Sage', 'Sage choker', 'Sage Choker'),
         desc: tri('Чокер ручной работы с подвеской.', "Osma bilan qo'lda yasalgan choker.", 'Handmade choker with a charm.'),
       },
       {
-        id: 'p-bracelet-beads', categoryId: 'bracelets', featured: true, inStock: true, createdAt: now, gender: 'unisex',
+        id: 'p-bracelet-beads', categoryId: 'bracelets', featured: true, inStock: true, createdAt: now,
         price: 89000, oldPrice: null, tags: ['bracelet', 'beads'], images: [IMG.bracelet],
         title: tri('Браслет из бусин', 'Munchoqli braslet', 'Beaded Bracelet'),
         desc: tri('Браслет из бусин ручной сборки.', "Qo'lda yig'ilgan munchoqli braslet.", 'Hand-assembled beaded bracelet.'),
       },
       {
-        id: 'p-phone-charm', categoryId: 'phone-charms', featured: true, inStock: true, createdAt: now, gender: 'unisex',
+        id: 'p-phone-charm', categoryId: 'phone-charms', featured: true, inStock: true, createdAt: now,
         price: 38000, oldPrice: null, tags: ['phone', 'charm'], images: [IMG.phoneCharm],
         title: tri('Подвеска для телефона', 'Telefon osmagi', 'Phone Charm'),
         desc: tri('Лёгкая подвеска на телефон.', 'Telefon uchun yengil osma.', 'Light phone charm.'),
       },
       {
-        id: 'p-bracelet-soft', categoryId: 'bracelets', featured: false, inStock: true, createdAt: now, gender: 'female',
+        id: 'p-bracelet-soft', categoryId: 'bracelets', featured: false, inStock: true, createdAt: now,
         price: 98000, oldPrice: 115000, tags: ['bracelet'], images: [IMG.bracelet],
         title: tri('Браслет Soft', 'Soft braslet', 'Soft Bracelet'),
         desc: tri('Мягкий браслет в пастельных тонах.', 'Pastel ohangdagi yumshoq braslet.', 'Soft pastel bracelet.'),

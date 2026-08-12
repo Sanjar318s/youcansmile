@@ -1,5 +1,6 @@
 /* ============================================================
    YouCanSmile — виджет чата (покупатель ↔ ИИ ↔ продавец)
+   Hold-to-talk voice, location cards, optimistic media.
    ============================================================ */
 const Chat = (() => {
   let root = null;
@@ -7,18 +8,40 @@ const Chat = (() => {
   let listEl = null;
   let inputEl = null;
   let replyBar = null;
+  let composeEl = null;
+  let recBar = null;
+  let recTimerEl = null;
+  let recHintEl = null;
   let me = null;
   let lastTs = 0;
   let pollTimer = null;
   let replyTo = null;
   let recorder = null;
   let recChunks = [];
+  let recStream = null;
+  let recStartedAt = 0;
+  let recTick = null;
+  let recCancel = false;
+  let recPointerId = null;
+  let recStartY = 0;
+  let activeAudio = null;
+  let delegated = false;
 
   const AVATARS = {
     customer: '🙂',
     agent: '🤖',
     seller: '💬',
   };
+
+  function escId(id) {
+    const s = String(id || '');
+    if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(s);
+    return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
+  function findMsgEl(id) {
+    return listEl?.querySelector(`[data-id="${escId(id)}"]`);
+  }
 
   function authorLabel(author) {
     if (author === 'agent') return I18n.t('chat_agent');
@@ -30,29 +53,65 @@ const Chat = (() => {
     return String(s || '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function fmtTime(sec) {
+    const s = Math.max(0, Math.floor(sec || 0));
+    const m = Math.floor(s / 60);
+    return `${m}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  function voiceHTML(url, durationHint) {
+    return `
+      <div class="chat-voice" data-src="${escape(url)}">
+        <button type="button" class="chat-voice-play" aria-label="play">▶</button>
+        <div class="chat-voice-wave"><i></i></div>
+        <span class="chat-voice-time">${escape(durationHint || '0:00')}</span>
+        <audio preload="metadata" src="${escape(url)}" hidden></audio>
+      </div>`;
+  }
+
+  function locationHTML(lat, lng) {
+    const la = Number(lat);
+    const ln = Number(lng);
+    const maps = `https://maps.google.com/?q=${la},${ln}`;
+    const staticMap = `https://staticmap.openstreetmap.de/staticmap.php?center=${la},${ln}&zoom=15&size=320x140&markers=${la},${ln},red-pushpin`;
+    return `
+      <a class="chat-loc" href="${escape(maps)}" target="_blank" rel="noopener">
+        <div class="chat-loc-map">
+          <img src="${escape(staticMap)}" alt="" loading="lazy" onerror="this.remove()"/>
+          <span class="chat-loc-pin" aria-hidden="true">📍</span>
+        </div>
+        <span class="chat-loc-label">${escape(I18n.t('chat_my_location'))}</span>
+        <span class="chat-loc-coords">${la.toFixed(5)}, ${ln.toFixed(5)}</span>
+        <span class="chat-loc-open">${escape(I18n.t('chat_open_map'))}</span>
+      </a>`;
   }
 
   function renderMessage(m) {
     const mine = m.author === 'customer';
+    const pending = m._pending ? ' pending' : '';
+    const failed = m._failed ? ' failed' : '';
     const reply = m.replyToId
-      ? `<div class="chat-reply-ref">${I18n.t('chat_reply')} #${escape(m.replyToId.slice(-6))}</div>`
+      ? `<div class="chat-reply-ref">${I18n.t('chat_reply')} #${escape(String(m.replyToId).slice(-6))}</div>`
       : '';
     let body = '';
     if (m.type === 'photo' && m.mediaUrl) {
-      body = `<a href="${escape(m.mediaUrl)}" target="_blank" rel="noopener"><img class="chat-img" src="${escape(m.mediaUrl)}" alt=""/></a>`;
+      body = `<a href="${escape(m.mediaUrl)}" target="_blank" rel="noopener"><img class="chat-img" src="${escape(m.mediaUrl)}" alt="" loading="lazy"/></a>`;
       if (m.text) body += `<p>${escape(m.text)}</p>`;
     } else if (m.type === 'voice' && m.mediaUrl) {
-      body = `<audio controls src="${escape(m.mediaUrl)}"></audio>`;
+      body = voiceHTML(m.mediaUrl, m._durationLabel);
       if (m.text) body += `<p>${escape(m.text)}</p>`;
-    } else if (m.type === 'location') {
-      body = `<a href="https://maps.google.com/?q=${m.lat},${m.lng}" target="_blank" rel="noopener">📍 ${m.lat?.toFixed?.(5) || m.lat}, ${m.lng?.toFixed?.(5) || m.lng}</a>`;
+    } else if (m.type === 'location' && m.lat != null && m.lng != null) {
+      body = locationHTML(m.lat, m.lng);
       if (m.text) body += `<p>${escape(m.text)}</p>`;
     } else {
       body = `<p>${escape(m.text)}</p>`;
     }
     return `
-      <div class="chat-msg ${mine ? 'mine' : 'theirs'} ${escape(m.author)}" data-id="${escape(m.id)}">
+      <div class="chat-msg ${mine ? 'mine' : 'theirs'} ${escape(m.author || '')}${pending}${failed}" data-id="${escape(m.id)}">
         <div class="chat-avatar" title="${escape(authorLabel(m.author))}">${AVATARS[m.author] || '•'}</div>
         <div class="chat-bubble">
           <div class="chat-author">${escape(authorLabel(m.author))}</div>
@@ -63,25 +122,92 @@ const Chat = (() => {
       </div>`;
   }
 
+  function bindVoicePlayers(scope) {
+    (scope || listEl)?.querySelectorAll('.chat-voice').forEach((wrap) => {
+      if (wrap.dataset.bound) return;
+      wrap.dataset.bound = '1';
+      const audio = wrap.querySelector('audio');
+      const btn = wrap.querySelector('.chat-voice-play');
+      const bar = wrap.querySelector('.chat-voice-wave > i');
+      const timeEl = wrap.querySelector('.chat-voice-time');
+      if (!audio || !btn) return;
+
+      const syncMeta = () => {
+        if (Number.isFinite(audio.duration) && audio.duration > 0) {
+          timeEl.textContent = fmtTime(audio.duration);
+        }
+      };
+      audio.addEventListener('loadedmetadata', syncMeta);
+      if (audio.readyState >= 1) syncMeta();
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (activeAudio && activeAudio !== audio) {
+          activeAudio.pause();
+          listEl.querySelectorAll('.chat-voice-play').forEach((b) => {
+            if (b !== btn) b.textContent = '▶';
+          });
+        }
+        if (audio.paused) {
+          audio.play().catch(() => {});
+          btn.textContent = '❚❚';
+          activeAudio = audio;
+        } else {
+          audio.pause();
+          btn.textContent = '▶';
+        }
+      });
+      audio.addEventListener('timeupdate', () => {
+        if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+        bar.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
+        timeEl.textContent = fmtTime(audio.duration - audio.currentTime);
+      });
+      audio.addEventListener('ended', () => {
+        btn.textContent = '▶';
+        bar.style.width = '0%';
+        syncMeta();
+      });
+    });
+  }
+
   function appendMessages(messages, replace) {
     if (!listEl) return;
     if (replace) listEl.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    const tmp = document.createElement('div');
     messages.forEach((m) => {
-      if (listEl.querySelector(`[data-id="${m.id}"]`)) return;
-      listEl.insertAdjacentHTML('beforeend', renderMessage(m));
+      if (findMsgEl(m.id)) return;
+      tmp.innerHTML = renderMessage(m);
+      while (tmp.firstChild) frag.appendChild(tmp.firstChild);
       if (m.createdAt > lastTs) lastTs = m.createdAt;
     });
+    listEl.appendChild(frag);
     listEl.scrollTop = listEl.scrollHeight;
-    listEl.querySelectorAll('.chat-reply-btn').forEach((btn) => {
-      btn.onclick = () => setReply(btn.dataset.reply);
-    });
+    bindVoicePlayers(listEl);
+    hideQuickIfNeeded();
+  }
+
+  function replaceMessageNode(tempId, realMsg) {
+    const el = findMsgEl(tempId);
+    if (!el) {
+      appendMessages([realMsg], false);
+      return;
+    }
+    el.outerHTML = renderMessage(realMsg);
+    bindVoicePlayers(listEl);
+    if (realMsg.createdAt > lastTs) lastTs = realMsg.createdAt;
+  }
+
+  function removeMessageNode(id) {
+    findMsgEl(id)?.remove();
   }
 
   function setReply(id) {
     replyTo = id;
     if (replyBar) {
       replyBar.classList.remove('hidden');
-      replyBar.textContent = `${I18n.t('chat_reply')}: …${String(id).slice(-6)}`;
+      replyBar.textContent = `${I18n.t('chat_reply')}: …${String(id).slice(-6)} · ${I18n.t('chat_reply_clear')}`;
     }
   }
 
@@ -104,7 +230,9 @@ const Chat = (() => {
 
   function startPoll() {
     stopPoll();
-    pollTimer = setInterval(() => refresh(false), 3000);
+    if (!me || me.role !== 'customer') return;
+    if (!panel || panel.classList.contains('hidden')) return;
+    pollTimer = setInterval(() => refresh(false), 12000);
   }
 
   function stopPoll() {
@@ -112,92 +240,334 @@ const Chat = (() => {
     pollTimer = null;
   }
 
-  async function send(payload) {
-    if (!me) return;
-    const res = await Api.sendChatMessage(payload);
-    if (res.messages) appendMessages(res.messages, false);
-    clearReply();
-    inputEl.value = '';
+  async function send(payload, optimistic) {
+    if (!me) return null;
+    const tempId = optimistic?.id;
+    try {
+      const res = await Api.sendChatMessage(payload);
+      const msgs = res.messages || [];
+      if (tempId && msgs[0]) {
+        replaceMessageNode(tempId, msgs[0]);
+        if (msgs.length > 1) appendMessages(msgs.slice(1), false);
+      } else {
+        appendMessages(msgs, false);
+      }
+      clearReply();
+      if (inputEl) inputEl.value = '';
+      return res;
+    } catch (err) {
+      if (tempId) {
+        const el = findMsgEl(tempId);
+        if (el) el.classList.add('failed');
+      }
+      UI.toast(I18n.t('chat_send_fail'));
+      throw err;
+    }
   }
 
-  async function sendText() {
-    const text = inputEl.value.trim();
+  async function sendText(preset) {
+    const text = (preset != null ? String(preset) : inputEl.value).trim();
     if (!text) return;
-    await send({ type: 'text', text, replyToId: replyTo });
+    const optimistic = {
+      id: 'tmp_' + Date.now().toString(36),
+      author: 'customer',
+      type: 'text',
+      text,
+      replyToId: replyTo,
+      createdAt: Date.now(),
+      _pending: true,
+    };
+    appendMessages([optimistic], false);
+    if (inputEl) inputEl.value = '';
+    syncActionBtn();
+    hideQuickIfNeeded();
+    await send({ type: 'text', text, replyToId: replyTo }, optimistic);
+  }
+
+  function quickKeys() {
+    return ['chat_q1', 'chat_q2', 'chat_q3', 'chat_q4', 'chat_q5'];
+  }
+
+  function renderQuick() {
+    const wrap = root?.querySelector('#chatQuick');
+    if (!wrap) return;
+    wrap.innerHTML = `
+      <div class="chat-quick-label">${escape(I18n.t('chat_quick_title'))}</div>
+      <div class="chat-quick-chips">
+        ${quickKeys().map((k) => `<button type="button" class="chat-quick-chip" data-quick="${escape(k)}">${escape(I18n.t(k))}</button>`).join('')}
+      </div>`;
+  }
+
+  function hideQuickIfNeeded() {
+    const wrap = root?.querySelector('#chatQuick');
+    if (!wrap) return;
+    // Keep shortcuts available like Telegram quick replies
+    wrap.classList.remove('hidden');
+  }
+
+  function syncActionBtn() {
+    const sendBtn = root?.querySelector('#chatSendBtn');
+    const voiceBtn = root?.querySelector('#chatVoiceBtn');
+    if (!sendBtn || !voiceBtn || !inputEl) return;
+    const hasText = !!inputEl.value.trim();
+    sendBtn.classList.toggle('hidden', !hasText);
+    voiceBtn.classList.toggle('hidden', hasText);
+  }
+
+  function closeAttachMenu() {
+    root?.querySelector('#chatAttachMenu')?.classList.add('hidden');
+  }
+
+  function toggleAttachMenu() {
+    const menu = root?.querySelector('#chatAttachMenu');
+    if (!menu) return;
+    menu.classList.toggle('hidden');
   }
 
   async function sendPhoto(file) {
     if (!file) return;
+    closeAttachMenu();
     const dataUrl = await UI.readFileAsDataURL(file);
-    const up = await Api.uploadMedia(dataUrl, file.type || 'image/jpeg');
-    await send({ type: 'photo', text: '', mediaUrl: up.url, replyToId: replyTo });
+    const optimistic = {
+      id: 'tmp_' + Date.now().toString(36),
+      author: 'customer',
+      type: 'photo',
+      mediaUrl: dataUrl,
+      replyToId: replyTo,
+      createdAt: Date.now(),
+      _pending: true,
+    };
+    appendMessages([optimistic], false);
+    hideQuickIfNeeded();
+    try {
+      const up = await Api.uploadMedia(dataUrl, file.type || 'image/jpeg');
+      await send({ type: 'photo', text: '', mediaUrl: up.url, replyToId: replyTo }, optimistic);
+    } catch (_) {
+      removeMessageNode(optimistic.id);
+      UI.toast(I18n.t('chat_send_fail'));
+    }
   }
 
-  async function sendVoice(blob) {
-    const reader = new FileReader();
-    const dataUrl = await new Promise((resolve, reject) => {
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-    const up = await Api.uploadMedia(dataUrl, blob.type || 'audio/webm');
-    await send({ type: 'voice', mediaUrl: up.url, replyToId: replyTo });
+  async function sendVoiceBlob(blob, durationSec) {
+    if (!blob || !blob.size) return;
+    const localUrl = URL.createObjectURL(blob);
+    const optimistic = {
+      id: 'tmp_' + Date.now().toString(36),
+      author: 'customer',
+      type: 'voice',
+      mediaUrl: localUrl,
+      replyToId: replyTo,
+      createdAt: Date.now(),
+      _pending: true,
+      _durationLabel: fmtTime(durationSec),
+    };
+    appendMessages([optimistic], false);
+    hideQuickIfNeeded();
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      const mime = blob.type || 'audio/webm';
+      const up = await Api.uploadMedia(dataUrl, mime);
+      await send({ type: 'voice', mediaUrl: up.url, replyToId: replyTo }, optimistic);
+    } catch (_) {
+      removeMessageNode(optimistic.id);
+      UI.toast(I18n.t('chat_send_fail'));
+    } finally {
+      URL.revokeObjectURL(localUrl);
+    }
   }
 
   function sendLocation() {
+    closeAttachMenu();
     if (!navigator.geolocation) {
-      UI.toast('Geolocation unavailable');
+      UI.toast(I18n.t('chat_geo_unavailable'));
       return;
     }
+    UI.toast(I18n.t('chat_location_send') + '…');
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        await send({
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const optimistic = {
+          id: 'tmp_' + Date.now().toString(36),
+          author: 'customer',
           type: 'location',
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
+          lat,
+          lng,
           replyToId: replyTo,
-        });
+          createdAt: Date.now(),
+          _pending: true,
+        };
+        appendMessages([optimistic], false);
+        hideQuickIfNeeded();
+        await send({ type: 'location', lat, lng, replyToId: replyTo }, optimistic);
       },
-      () => UI.toast('Location denied')
+      () => UI.toast(I18n.t('chat_geo_denied')),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     );
   }
 
-  async function toggleRecord(btn) {
-    if (recorder && recorder.state === 'recording') {
-      recorder.stop();
-      btn.classList.remove('recording');
-      return;
+  function pickRecorderMime() {
+    const candidates = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+    for (const t of candidates) {
+      if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
     }
+    return '';
+  }
+
+  function setRecordingUI(on) {
+    if (!composeEl) return;
+    composeEl.classList.toggle('recording', !!on);
+    document.body.classList.toggle('chat-recording', !!on);
+    closeAttachMenu();
+    if (recHintEl) {
+      recHintEl.textContent = I18n.t('chat_voice_slide_cancel');
+      recHintEl.classList.toggle('cancel', false);
+    }
+  }
+
+  function stopRecTimer() {
+    if (recTick) clearInterval(recTick);
+    recTick = null;
+  }
+
+  function startRecTimer() {
+    stopRecTimer();
+    recStartedAt = Date.now();
+    if (recTimerEl) recTimerEl.textContent = '0:00';
+    recTick = setInterval(() => {
+      const sec = Math.floor((Date.now() - recStartedAt) / 1000);
+      if (recTimerEl) recTimerEl.textContent = fmtTime(sec);
+    }, 250);
+  }
+
+  async function beginRecord(pointerId, clientY) {
+    if (recorder && recorder.state === 'recording') return;
+    recCancel = false;
+    recPointerId = pointerId;
+    recStartY = clientY;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       recChunks = [];
-      recorder = new MediaRecorder(stream);
+      const mime = pickRecorderMime();
+      recorder = mime ? new MediaRecorder(recStream, { mimeType: mime }) : new MediaRecorder(recStream);
       recorder.ondataavailable = (e) => {
-        if (e.data.size) recChunks.push(e.data);
+        if (e.data && e.data.size) recChunks.push(e.data);
       };
       recorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(recChunks, { type: recorder.mimeType || 'audio/webm' });
-        if (blob.size) await sendVoice(blob);
+        const durationSec = Math.max(1, Math.round((Date.now() - recStartedAt) / 1000));
+        const tracks = recStream ? recStream.getTracks() : [];
+        tracks.forEach((t) => t.stop());
+        recStream = null;
+        setRecordingUI(false);
+        stopRecTimer();
+        const btn = root?.querySelector('#chatVoiceBtn');
+        btn?.classList.remove('holding');
+        if (recCancel) {
+          recChunks = [];
+          return;
+        }
+        if (durationSec < 1) {
+          UI.toast(I18n.t('chat_voice_too_short'));
+          return;
+        }
+        const blob = new Blob(recChunks, { type: recorder.mimeType || mime || 'audio/webm' });
+        await sendVoiceBlob(blob, durationSec);
       };
-      recorder.start();
-      btn.classList.add('recording');
-      UI.toast(I18n.t('chat_voice_rec'));
+      recorder.start(100);
+      setRecordingUI(true);
+      startRecTimer();
+      root?.querySelector('#chatVoiceBtn')?.classList.add('holding');
     } catch (_) {
-      UI.toast('Mic unavailable');
+      UI.toast(I18n.t('chat_mic_unavailable'));
+      setRecordingUI(false);
     }
+  }
+
+  function finishRecord(cancel) {
+    recCancel = !!cancel;
+    if (recorder && recorder.state === 'recording') recorder.stop();
+    else {
+      setRecordingUI(false);
+      stopRecTimer();
+      root?.querySelector('#chatVoiceBtn')?.classList.remove('holding');
+    }
+    recorder = null;
+    recPointerId = null;
+  }
+
+  function onVoicePointerMove(e) {
+    if (recPointerId == null) return;
+    const y = e.clientY ?? (e.touches && e.touches[0]?.clientY);
+    if (y == null) return;
+    const dy = recStartY - y;
+    const willCancel = dy > 56;
+    if (recHintEl) {
+      recHintEl.textContent = willCancel ? I18n.t('chat_voice_release_cancel') : I18n.t('chat_voice_slide_cancel');
+      recHintEl.classList.toggle('cancel', willCancel);
+    }
+    recCancel = willCancel;
+  }
+
+  function bindVoiceHold(btn) {
+    let armed = false;
+    const arm = (e) => {
+      if (e.button != null && e.button !== 0) return;
+      if (btn.classList.contains('hidden')) return;
+      e.preventDefault();
+      armed = true;
+      btn.setPointerCapture?.(e.pointerId);
+      beginRecord(e.pointerId, e.clientY);
+    };
+    btn.addEventListener('pointerdown', arm);
+    btn.addEventListener('pointermove', onVoicePointerMove);
+    const end = (e) => {
+      if (!armed && recPointerId == null) return;
+      if (recPointerId != null && e.pointerId !== recPointerId) return;
+      armed = false;
+      const y = e.clientY;
+      const cancel = y != null && recStartY - y > 56;
+      finishRecord(cancel);
+    };
+    btn.addEventListener('pointerup', end);
+    btn.addEventListener('pointercancel', () => {
+      armed = false;
+      finishRecord(true);
+    });
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    btn.addEventListener('click', (e) => e.preventDefault());
   }
 
   function showLoginHint() {
     if (!panel) return;
     panel.querySelector('.chat-login-hint')?.classList.remove('hidden');
     panel.querySelector('.chat-compose')?.classList.add('hidden');
+    panel.querySelector('#chatQuick')?.classList.add('hidden');
   }
 
   function showCompose() {
     if (!panel) return;
     panel.querySelector('.chat-login-hint')?.classList.add('hidden');
     panel.querySelector('.chat-compose')?.classList.remove('hidden');
+    renderQuick();
+    hideQuickIfNeeded();
+    syncActionBtn();
+  }
+
+  function ensureDelegation() {
+    if (delegated || !listEl) return;
+    delegated = true;
+    listEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-reply]');
+      if (btn && listEl.contains(btn)) {
+        e.preventDefault();
+        setReply(btn.dataset.reply);
+      }
+    });
   }
 
   function buildUI() {
@@ -205,28 +575,52 @@ const Chat = (() => {
     root = document.createElement('div');
     root.className = 'chat-widget';
     root.innerHTML = `
-      <button type="button" class="chat-fab" id="chatFab" aria-label="${I18n.t('chat_open')}">💬</button>
+      <button type="button" class="chat-fab" id="chatFab" aria-label="${I18n.t('chat_open')}">
+        <span class="chat-fab-face" aria-hidden="true">
+          <img src="img/chat-fab-cat.svg" alt="" width="64" height="64" decoding="async" fetchpriority="low"/>
+        </span>
+        <span class="chat-fab-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
+            <path d="M5 6.8c0-1.3 1.1-2.3 2.4-2.3h9.2c1.3 0 2.4 1 2.4 2.3v6.1c0 1.3-1.1 2.3-2.4 2.3H11l-3.6 3.2V15.2H7.4C6.1 15.2 5 14.2 5 12.9V6.8z" fill="currentColor"/>
+            <circle cx="9.2" cy="9.7" r="1.05" fill="#7d936a"/>
+            <circle cx="12" cy="9.7" r="1.05" fill="#7d936a"/>
+            <circle cx="14.8" cy="9.7" r="1.05" fill="#7d936a"/>
+          </svg>
+        </span>
+      </button>
       <div class="chat-panel hidden" id="chatPanel">
         <div class="chat-head">
           <b data-i18n="chat_title">${I18n.t('chat_title')}</b>
-          <button type="button" class="icon-btn chat-close" id="chatClose">×</button>
+          <button type="button" class="icon-btn chat-close" id="chatClose" aria-label="close">×</button>
         </div>
         <div class="chat-login-hint hidden">
           <p data-i18n="chat_login_hint">${I18n.t('chat_login_hint')}</p>
           <a class="btn btn-primary" href="account.html">${I18n.t('account_login_btn')}</a>
         </div>
         <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-quick" id="chatQuick"></div>
         <div class="chat-reply-bar hidden" id="chatReplyBar"></div>
-        <div class="chat-compose">
-          <div class="chat-tools">
-            <button type="button" class="icon-btn" id="chatPhotoBtn" title="${I18n.t('chat_photo')}">📷</button>
-            <button type="button" class="icon-btn" id="chatVoiceBtn" title="${I18n.t('chat_voice')}">🎤</button>
-            <button type="button" class="icon-btn" id="chatLocBtn" title="${I18n.t('chat_location')}">📍</button>
-            <input type="file" accept="image/*" id="chatPhotoInput" hidden/>
+        <div class="chat-compose" id="chatCompose">
+          <div class="chat-rec-bar" id="chatRecBar">
+            <span class="chat-rec-dot" aria-hidden="true"></span>
+            <span data-i18n="chat_voice_rec">${I18n.t('chat_voice_rec')}</span>
+            <span id="chatRecTimer">0:00</span>
+            <span class="chat-rec-hint" id="chatRecHint">${I18n.t('chat_voice_slide_cancel')}</span>
           </div>
-          <div class="chat-input-row">
-            <input type="text" id="chatInput" placeholder="${I18n.t('chat_placeholder')}" autocomplete="off"/>
-            <button type="button" class="btn btn-primary" id="chatSend">${I18n.t('chat_send')}</button>
+          <div class="chat-tg-row">
+            <div class="chat-attach-wrap">
+              <button type="button" class="chat-icon-btn" id="chatAttachBtn" title="${I18n.t('chat_attach')}" aria-label="${I18n.t('chat_attach')}">＋</button>
+              <div class="chat-attach-menu hidden" id="chatAttachMenu" role="menu">
+                <button type="button" role="menuitem" id="chatGalleryBtn">🖼 ${I18n.t('chat_gallery')}</button>
+                <button type="button" role="menuitem" id="chatCameraBtn">📷 ${I18n.t('chat_camera')}</button>
+                <button type="button" role="menuitem" id="chatLocBtn">📍 ${I18n.t('chat_location')}</button>
+              </div>
+              <input type="file" accept="image/*" id="chatPhotoInput" hidden/>
+              <input type="file" accept="image/*" capture="environment" id="chatCameraInput" hidden/>
+            </div>
+            <input type="text" id="chatInput" placeholder="${I18n.t('chat_placeholder')}" autocomplete="off" enterkeyhint="send"/>
+            <button type="button" class="chat-action-btn chat-send-btn hidden" id="chatSendBtn" title="${I18n.t('chat_send')}" aria-label="${I18n.t('chat_send')}">➤</button>
+            <button type="button" class="chat-action-btn chat-voice-btn" id="chatVoiceBtn" title="${I18n.t('chat_voice_hold')}" aria-label="${I18n.t('chat_voice_hold')}">🎤</button>
           </div>
         </div>
       </div>`;
@@ -235,13 +629,33 @@ const Chat = (() => {
     listEl = root.querySelector('#chatMessages');
     inputEl = root.querySelector('#chatInput');
     replyBar = root.querySelector('#chatReplyBar');
+    composeEl = root.querySelector('#chatCompose');
+    recBar = root.querySelector('#chatRecBar');
+    recTimerEl = root.querySelector('#chatRecTimer');
+    recHintEl = root.querySelector('#chatRecHint');
+    ensureDelegation();
+    renderQuick();
 
-    root.querySelector('#chatFab').addEventListener('click', () => {
+    root.querySelector('#chatFab').addEventListener('click', async () => {
       panel.classList.toggle('hidden');
-      if (!panel.classList.contains('hidden') && me) refresh(true);
+      if (!panel.classList.contains('hidden')) {
+        await ensureSession();
+        if (me) {
+          await refresh(true);
+          hideQuickIfNeeded();
+          startPoll();
+        }
+      } else {
+        stopPoll();
+      }
     });
-    root.querySelector('#chatClose').addEventListener('click', () => panel.classList.add('hidden'));
-    root.querySelector('#chatSend').addEventListener('click', sendText);
+    root.querySelector('#chatClose').addEventListener('click', () => {
+      panel.classList.add('hidden');
+      closeAttachMenu();
+      stopPoll();
+    });
+    root.querySelector('#chatSendBtn').addEventListener('click', () => sendText());
+    inputEl.addEventListener('input', syncActionBtn);
     inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -250,22 +664,54 @@ const Chat = (() => {
     });
     replyBar.addEventListener('click', clearReply);
 
-    const photoInput = root.querySelector('#chatPhotoInput');
-    root.querySelector('#chatPhotoBtn').addEventListener('click', () => photoInput.click());
-    photoInput.addEventListener('change', () => {
-      if (photoInput.files && photoInput.files[0]) sendPhoto(photoInput.files[0]);
-      photoInput.value = '';
+    root.querySelector('#chatAttachBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleAttachMenu();
     });
-    root.querySelector('#chatVoiceBtn').addEventListener('click', (e) => toggleRecord(e.currentTarget));
+    const galleryInput = root.querySelector('#chatPhotoInput');
+    const cameraInput = root.querySelector('#chatCameraInput');
+    root.querySelector('#chatGalleryBtn').addEventListener('click', () => {
+      closeAttachMenu();
+      galleryInput.click();
+    });
+    root.querySelector('#chatCameraBtn').addEventListener('click', () => {
+      closeAttachMenu();
+      cameraInput.click();
+    });
+    const onPhoto = (input) => {
+      if (input.files && input.files[0]) sendPhoto(input.files[0]);
+      input.value = '';
+    };
+    galleryInput.addEventListener('change', () => onPhoto(galleryInput));
+    cameraInput.addEventListener('change', () => onPhoto(cameraInput));
+    bindVoiceHold(root.querySelector('#chatVoiceBtn'));
     root.querySelector('#chatLocBtn').addEventListener('click', sendLocation);
+
+    root.querySelector('#chatQuick').addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-quick]');
+      if (!chip) return;
+      const key = chip.getAttribute('data-quick');
+      sendText(I18n.t(key));
+    });
+
+    document.addEventListener('pointerdown', (e) => {
+      if (!root.contains(e.target)) closeAttachMenu();
+      else if (!e.target.closest('.chat-attach-wrap')) closeAttachMenu();
+    });
+
+    syncActionBtn();
   }
+
+  let sessionWarmed = false;
 
   async function syncSession() {
     me = await Api.getMe();
     if (me && me.role === 'customer') {
       showCompose();
-      await refresh(true);
-      startPoll();
+      if (panel && !panel.classList.contains('hidden')) {
+        await refresh(true);
+        startPoll();
+      }
     } else {
       me = null;
       stopPoll();
@@ -273,9 +719,22 @@ const Chat = (() => {
     }
   }
 
+  async function ensureSession() {
+    if (sessionWarmed) return;
+    sessionWarmed = true;
+    await syncSession();
+  }
+
   async function init() {
     buildUI();
-    await syncSession();
+    const warm = () => {
+      ensureSession().catch(() => {});
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(warm, { timeout: 3500 });
+    } else {
+      setTimeout(warm, 1200);
+    }
   }
 
   async function onLogin() {

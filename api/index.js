@@ -26,6 +26,7 @@ module.exports = async (req, res) => {
     if (route === 'auth/register') return load('auth/register.js')(req, res);
     if (route === 'auth/logout') return load('auth/logout.js')(req, res);
     if (route === 'auth/me') return load('auth/me.js')(req, res);
+    if (route === 'auth/profile') return load('auth/profile.js')(req, res);
     if (route === 'auth/google') return load('auth/google.js')(req, res);
     if (route === 'auth/google/callback') return load('auth/google/callback.js')(req, res);
 

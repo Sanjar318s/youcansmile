@@ -6,7 +6,11 @@ module.exports = async (req, res) => {
   if (cors(req, res)) return;
   try {
     await ensureSeeded();
-    if (req.method === 'GET') return json(res, 200, await getCategories());
+    if (req.method === 'GET') {
+      return json(res, 200, await getCategories(), {
+        'Cache-Control': 'public, max-age=30, s-maxage=60',
+      });
+    }
     if (req.method === 'POST') {
       const body = (await readBody(req)) || {};
       const cat = Object.assign({ id: uid('c') }, body);

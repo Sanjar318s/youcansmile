@@ -8,7 +8,9 @@ module.exports = async (req, res) => {
     await ensureSeeded();
     if (req.method === 'GET') {
       const s = await getSettings();
-      return json(res, 200, s || {});
+      return json(res, 200, s || {}, {
+        'Cache-Control': 'public, max-age=30, s-maxage=60',
+      });
     }
     if (req.method === 'PUT') {
       const body = (await readBody(req)) || {};

@@ -13,8 +13,19 @@
   if (me && me.role === 'customer') {
     const nameEl = document.getElementById('cName');
     const phoneEl = document.getElementById('cPhone');
+    const contactEl = document.getElementById('cContact');
+    const addressEl = document.getElementById('cAddress');
     if (nameEl && me.name) nameEl.value = me.name;
     if (phoneEl && me.phone) phoneEl.value = me.phone.startsWith('+') ? me.phone : '+998 ' + me.phone.replace(/\D/g, '').slice(-9);
+    if (me.instagram && !me.telegram) {
+      const ig = document.querySelector('input[name="cContactChannel"][value="instagram"]');
+      if (ig) ig.checked = true;
+    }
+    if (contactEl) {
+      const nick = me.telegram || me.instagram || '';
+      if (nick) contactEl.value = nick.startsWith('@') ? nick : '@' + nick;
+    }
+    if (addressEl && me.address) addressEl.value = me.address;
   }
 
   const form = document.getElementById('customForm');

@@ -5,12 +5,12 @@
   document.documentElement.lang = I18n.lang;
   applyI18n();
   await Api.init();
-  const s = await Api.getSettings();
-  await UI.renderHeader();
-  await UI.renderFooter();
-
   const id = new URLSearchParams(location.search).get('id');
-  const product = await Api.getProduct(id);
+  const [s, , product] = await Promise.all([
+    Api.getSettings(),
+    Promise.all([UI.renderHeader(), UI.renderFooter()]),
+    Api.getProduct(id),
+  ]);
   const grid = document.getElementById('pdGrid');
 
   if (!product) {

@@ -5,16 +5,29 @@
   document.documentElement.lang = I18n.lang;
   applyI18n();
   await Api.init();
-  const s = await Api.getSettings();
-  await UI.renderHeader('cart');
-  await UI.renderFooter();
+  const [s, , me, prods] = await Promise.all([
+    Api.getSettings(),
+    Promise.all([UI.renderHeader('cart'), UI.renderFooter()]),
+    Api.getMe().catch(() => null),
+    Api.getProducts(),
+  ]);
 
-  const me = await Api.getMe();
   if (me && me.role === 'customer') {
     const nameEl = document.getElementById('oName');
     const phoneEl = document.getElementById('oPhone');
+    const contactEl = document.getElementById('oContactUser');
+    const addressEl = document.getElementById('oAddress');
     if (nameEl && me.name) nameEl.value = me.name;
     if (phoneEl && me.phone) phoneEl.value = me.phone.startsWith('+') ? me.phone : '+998 ' + me.phone.replace(/\D/g, '').slice(-9);
+    if (me.instagram && !me.telegram) {
+      const ig = document.querySelector('input[name="oContactChannel"][value="instagram"]');
+      if (ig) ig.checked = true;
+    }
+    if (contactEl) {
+      const nick = me.telegram || me.instagram || '';
+      if (nick) contactEl.value = nick.startsWith('@') ? nick : '@' + nick;
+    }
+    if (addressEl && me.address) addressEl.value = me.address;
   }
 
   const listEl = document.getElementById('cartList');
@@ -26,7 +39,6 @@
   const orderForm = document.getElementById('orderForm');
   const orderOk = document.getElementById('orderOk');
   const orderLinks = document.getElementById('orderLinks');
-  const prods = await Api.getProducts();
   const prodById = Object.fromEntries(prods.map((p) => [p.id, p]));
 
   let mapApi = null;
@@ -282,12 +294,14 @@
         (payment === 'card' ? `\n\n${s.cardRecipient || 'Mirsagatova Madina'}\n${s.cardNumber || ''}` : '')
     );
 
+    const waHref = UI.normalizeContactHref('whatsapp', (s.contacts && s.contacts.whatsapp) || '');
+    const tgHref = UI.normalizeContactHref('telegram', (s.contacts && s.contacts.telegram) || '');
     orderLinks.innerHTML =
-      (s.contacts.whatsapp
-        ? `<a class="btn btn-sm btn-gold" target="_blank" rel="noopener" href="${s.contacts.whatsapp}?text=${msg}">${I18n.t('order_send_whatsapp')}</a>`
+      (waHref
+        ? `<a class="btn btn-sm btn-gold" target="_blank" rel="noopener" href="${waHref}?text=${msg}">${I18n.t('order_send_whatsapp')}</a>`
         : '') +
-      (s.contacts.telegram
-        ? `<a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="${s.contacts.telegram}?text=${msg}">${I18n.t('order_send_telegram')}</a>`
+      (tgHref
+        ? `<a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="${tgHref}?text=${msg}">${I18n.t('order_send_telegram')}</a>`
         : '');
 
     Store.clearCart();

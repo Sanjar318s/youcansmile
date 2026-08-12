@@ -10,7 +10,9 @@ module.exports = async (req, res) => {
   try {
     if (req.method === 'GET') {
       const productId = req.query.productId || null;
-      return json(res, 200, await getReviews(productId || undefined));
+      return json(res, 200, await getReviews(productId || undefined), {
+        'Cache-Control': 'public, max-age=30, s-maxage=60',
+      });
     }
     if (req.method === 'POST') {
       const body = (await readBody(req)) || {};

@@ -7,15 +7,23 @@
   <link rel="icon" href="img/logo-ycs.png"/>
   <script>
     (function () {
-      try {
-        var t = localStorage.getItem('ycs_theme') || 'sage';
-        document.documentElement.setAttribute('data-theme', t);
-      } catch (e) {
-        document.documentElement.setAttribute('data-theme', 'sage');
-      }
+      var t = 'sage';
+      try { t = localStorage.getItem('ycs_theme') || 'sage'; } catch (e) {}
+      document.documentElement.setAttribute('data-theme', t);
+      var href = t === 'purple'
+        ? 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;600;700&display=swap'
+        : 'https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@400;600;700&display=swap';
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = href;
+      l.media = 'print';
+      l.onload = function () { this.media = 'all'; };
+      document.head.appendChild(l);
     })();
   </script>
-  <link rel="stylesheet" href="css/styles.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="stylesheet" href="css/styles.css?v=20260813b"/>
 </head>
 <body>
   <div id="header-root"></div>
@@ -24,7 +32,12 @@
     <div class="container account-wrap">
       <h1 data-i18n="account_title">Личный кабинет</h1>
 
-      <div id="accountGuest">
+      <div id="accountBoot" class="account-boot hidden" aria-live="polite">
+        <div class="account-boot-spinner" aria-hidden="true"></div>
+        <p class="muted" data-i18n="account_loading">Загружаем кабинет…</p>
+      </div>
+
+      <div id="accountGuest" class="hidden">
         <div class="account-tabs">
           <button type="button" class="btn btn-secondary account-tab active" data-tab="login" data-i18n="account_login">Вход</button>
           <button type="button" class="btn btn-secondary account-tab" data-tab="register" data-i18n="account_register">Регистрация</button>
@@ -53,6 +66,32 @@
           <button type="button" class="btn btn-secondary" id="logoutBtn" data-i18n="account_logout">Выйти</button>
         </div>
 
+        <h2 data-i18n="account_profile_title">Профиль</h2>
+        <p class="account-profile-hint muted" data-i18n="account_profile_hint">Ник, соцсети и адрес сохраняются и подставляются при заказе.</p>
+        <form id="profileForm" class="account-form card account-profile-form">
+          <label>
+            <span data-i18n="account_nick">Ник / имя</span>
+            <input type="text" id="profileName" autocomplete="nickname" required/>
+          </label>
+          <label>
+            <span data-i18n="account_phone">Телефон</span>
+            <input type="tel" id="profilePhone" autocomplete="tel" placeholder="+998 …"/>
+          </label>
+          <label>
+            <span data-i18n="account_telegram">Telegram</span>
+            <input type="text" id="profileTelegram" autocomplete="username" placeholder="@username"/>
+          </label>
+          <label>
+            <span data-i18n="account_instagram">Instagram</span>
+            <input type="text" id="profileInstagram" autocomplete="username" placeholder="@username"/>
+          </label>
+          <label class="full">
+            <span data-i18n="account_address">Адрес доставки</span>
+            <textarea id="profileAddress" rows="2" placeholder="" data-i18n-placeholder="account_address_ph"></textarea>
+          </label>
+          <button class="btn btn-primary" type="submit" data-i18n="account_profile_save">Сохранить профиль</button>
+        </form>
+
         <h2 data-i18n="account_orders">Мои заказы</h2>
         <div id="ordersList" class="account-orders"></div>
         <p class="catalog-empty hidden" id="ordersEmpty" data-i18n="account_orders_empty">Заказов пока нет.</p>
@@ -62,12 +101,12 @@
 
   <div id="footer-root"></div>
 
-  <script src="js/i18n.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/theme-apply.js"></script>
-  <script src="js/store.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/chat.js"></script>
-  <script src="js/account.js"></script>
+  <script src="js/i18n.js?v=20260813b" defer></script>
+  <script src="js/api.js?v=20260813b" defer></script>
+  <script src="js/theme-apply.js?v=20260813b" defer></script>
+  <script src="js/store.js?v=20260813b" defer></script>
+  <script src="js/ui.js?v=20260813b" defer></script>
+  <script src="js/chat.js?v=20260813b" defer></script>
+  <script src="js/account.js?v=20260813b" defer></script>
 </body>
 </html>

@@ -376,14 +376,6 @@
           </label>
         </div>
         <div class="field">
-          <label>Gender</label>
-          <select id="fGender">
-            <option value="unisex" ${!p || p.gender === 'unisex' || !p.gender ? 'selected' : ''}>Unisex</option>
-            <option value="male" ${p && p.gender === 'male' ? 'selected' : ''}>Male</option>
-            <option value="female" ${p && p.gender === 'female' ? 'selected' : ''}>Female</option>
-          </select>
-        </div>
-        <div class="field">
           <label>Title (UZ)</label>
           <input id="fTitleUz" value="${p ? UI.escapeHtml((p.title && p.title.uz) || '') : ''}"/>
         </div>
@@ -456,14 +448,30 @@
         tags: document.getElementById('fTags').value.split(',').map((t) => t.trim()).filter(Boolean),
         inStock: document.getElementById('fStock').checked,
         featured: document.getElementById('fFeatured').checked,
-        gender: document.getElementById('fGender').value || 'unisex',
-        images: state.images,
+        images: await persistProductImages(state.images),
       };
       if (p) await Api.updateProduct(p.id, data);
       else await Api.createProduct(data);
       UI.toast(I18n.t('admin_saved'));
       renderProducts();
     });
+  }
+
+  async function persistProductImages(images) {
+    const out = [];
+    for (const img of images || []) {
+      if (typeof img === 'string' && img.startsWith('data:')) {
+        try {
+          const up = await Api.uploadMedia(img, 'image/jpeg');
+          out.push(up.url || img);
+        } catch (_) {
+          out.push(img);
+        }
+      } else if (img) {
+        out.push(img);
+      }
+    }
+    return out.length ? out : ['img/logo-ycs.png'];
   }
 
   /* ------------------------ категории ---------------------- */
@@ -1107,7 +1115,11 @@
           <div class="set-grid">
             <div class="field">
               <label>${I18n.t('admin_contact_telegram')}</label>
-              <input id="sTg" value="${UI.escapeHtml((s.contacts && s.contacts.telegram) || '')}"/>
+              <input id="sTg" placeholder="@username или https://t.me/..." value="${UI.escapeHtml((s.contacts && s.contacts.telegram) || '')}"/>
+            </div>
+            <div class="field">
+              <label>${I18n.t('admin_contact_telegram_channel')}</label>
+              <input id="sTgChannel" placeholder="@channel или https://t.me/..." value="${UI.escapeHtml(s.telegramChannel || '')}"/>
             </div>
             <div class="field">
               <label>${I18n.t('admin_contact_whatsapp')}</label>
@@ -1164,16 +1176,17 @@
           return next;
         })(),
         contacts: {
-          telegram: document.getElementById('sTg').value.trim(),
-          whatsapp: document.getElementById('sWa').value.trim(),
+          telegram: UI.normalizeContactHref('telegram', document.getElementById('sTg').value.trim()) || document.getElementById('sTg').value.trim(),
+          whatsapp: UI.normalizeContactHref('whatsapp', document.getElementById('sWa').value.trim()) || document.getElementById('sWa').value.trim(),
           email: document.getElementById('sEmail').value.trim(),
-          instagram: document.getElementById('sIg').value.trim(),
+          instagram: UI.normalizeContactHref('instagram', document.getElementById('sIg').value.trim()) || document.getElementById('sIg').value.trim(),
         },
         social: {
-          telegram: document.getElementById('sTg').value.trim(),
-          whatsapp: document.getElementById('sWa').value.trim(),
-          instagram: document.getElementById('sIg').value.trim(),
+          telegram: UI.normalizeContactHref('telegram', document.getElementById('sTg').value.trim()) || document.getElementById('sTg').value.trim(),
+          whatsapp: UI.normalizeContactHref('whatsapp', document.getElementById('sWa').value.trim()) || document.getElementById('sWa').value.trim(),
+          instagram: UI.normalizeContactHref('instagram', document.getElementById('sIg').value.trim()) || document.getElementById('sIg').value.trim(),
         },
+        telegramChannel: UI.normalizeContactHref('telegram', document.getElementById('sTgChannel').value.trim()) || document.getElementById('sTgChannel').value.trim(),
         adminPassword: document.getElementById('sPass').value,
       };
       settings = await Api.saveSettings(ns);

@@ -237,6 +237,7 @@ const UI = (() => {
       if (bar.classList.contains('open')) document.getElementById('searchInput').focus();
     });
     const input = document.getElementById('searchInput');
+    let searchTimer = null;
     input.addEventListener('input', () => {
       const q = input.value.trim().toLowerCase();
       const box = document.getElementById('searchResults');
@@ -245,19 +246,21 @@ const UI = (() => {
         box.classList.remove('show');
         return;
       }
-      Api.getProducts().then((products) => {
-        const hits = products.filter(
-          (p) =>
-            (p.title.ru || '').toLowerCase().includes(q) ||
-            (p.title.en || '').toLowerCase().includes(q) ||
-            (p.title.uz || '').toLowerCase().includes(q) ||
-            (p.tags || []).join(' ').toLowerCase().includes(q)
-        );
-        box.innerHTML = hits.length
-          ? hits
-              .slice(0, 6)
-              .map(
-                (p) => `
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        Api.getProducts().then((products) => {
+          const hits = products.filter(
+            (p) =>
+              (p.title.ru || '').toLowerCase().includes(q) ||
+              (p.title.en || '').toLowerCase().includes(q) ||
+              (p.title.uz || '').toLowerCase().includes(q) ||
+              (p.tags || []).join(' ').toLowerCase().includes(q)
+          );
+          box.innerHTML = hits.length
+            ? hits
+                .slice(0, 6)
+                .map(
+                  (p) => `
                 <a class="search-hit" href="product.html?id=${p.id}">
                   <img src="${p.images[0]}" alt="" loading="lazy"/>
                   <div class="sh-info">
@@ -265,11 +268,12 @@ const UI = (() => {
                     <span>${Store.formatPrice(p.price, s)}</span>
                   </div>
                 </a>`
-              )
-              .join('')
-          : `<div class="search-hit empty">${I18n.t('search_empty')}</div>`;
-        box.classList.add('show');
-      });
+                )
+                .join('')
+            : `<div class="search-hit empty">${I18n.t('search_empty')}</div>`;
+          box.classList.add('show');
+        });
+      }, 250);
     });
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.search-bar') && !e.target.closest('.search-toggle')) {
@@ -285,10 +289,11 @@ const UI = (() => {
 
     const theme = (document.documentElement.getAttribute('data-theme') || 'sage').toLowerCase();
     const isPurple = theme === 'purple';
-    const tg = pickContact(s, 'telegram');
-    const ig = pickContact(s, 'instagram');
-    const wa = pickContact(s, 'whatsapp');
+    const tg = normalizeContactHref('telegram', pickContact(s, 'telegram'));
+    const ig = normalizeContactHref('instagram', pickContact(s, 'instagram'));
+    const wa = normalizeContactHref('whatsapp', pickContact(s, 'whatsapp'));
     const em = pickContact(s, 'email');
+    const tgChannel = normalizeContactHref('telegram', s.telegramChannel || '');
     const hasAnyContact = !!(tg || ig || wa || em);
     const socialIcons = [
       ig ? `<a href="${escapeHtml(ig)}" target="_blank" rel="noopener" aria-label="Instagram">
@@ -323,10 +328,10 @@ const UI = (() => {
             ${hasAnyContact ? `<a href="index.html#contacts">${I18n.t('sage_footer_contact')}</a>` : ''}
             ${isPurple ? `<a href="admin.html">${I18n.t('nav_admin')}</a>` : ''}
           </div>
-          ${socialIcons ? `<div class="fs-col">
+          ${(socialIcons || tgChannel) ? `<div class="fs-col">
             <h4>${I18n.t('sage_footer_follow')}</h4>
-            <div class="fs-social">${socialIcons}</div>
-            ${tg ? `<a class="fs-channel" href="${escapeHtml(tg)}" target="_blank" rel="noopener">+ Youcansmile Канал</a>` : ''}
+            ${socialIcons ? `<div class="fs-social">${socialIcons}</div>` : ''}
+            ${tgChannel ? `<a class="fs-channel" href="${escapeHtml(tgChannel)}" target="_blank" rel="noopener">+ Youcansmile Канал</a>` : ''}
           </div>` : ''}
         </div>
         <div class="container footer-bottom">
@@ -335,7 +340,16 @@ const UI = (() => {
         </div>
       </footer>`;
     if (typeof Chat !== 'undefined' && !/admin\.html/i.test(location.pathname)) {
-      Chat.init();
+      const bootChat = () => {
+        try {
+          Chat.init();
+        } catch (_) { /* ignore */ }
+      };
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(bootChat, { timeout: 2800 });
+      } else {
+        setTimeout(bootChat, 800);
+      }
     }
   }
 
@@ -380,11 +394,12 @@ const UI = (() => {
           ? `<span class="badge-stock new">New</span>`
           : '';
     const info = ratingInfo || { avg: 0, count: 0 };
+    const img = (Array.isArray(p.images) && p.images[0]) || 'img/logo-ycs.png';
     return `
       <article class="card">
         <a class="card-img" href="product.html?id=${p.id}">
           ${stockBadge}
-          <img src="${p.images[0]}" alt="${escapeHtml(I18n.txt(p.title))}" loading="lazy"/>
+          <img src="${img}" alt="${escapeHtml(I18n.txt(p.title))}" loading="lazy"/>
         </a>
         <button class="card-fav ${fav ? 'active' : ''}" data-fav="${p.id}" aria-label="fav">
           ${
@@ -413,9 +428,16 @@ const UI = (() => {
   }
 
   async function renderGrid(container, products, currency) {
-    const ratings = (typeof Api !== 'undefined' && Api.getRatingsMap) ? await Api.getRatingsMap() : {};
-    container.innerHTML = products.length
-      ? (await Promise.all(products.map((p) => cardHTML(p, currency, ratings[p.id])))).join('')
+    if (!container) return;
+    let ratings = {};
+    try {
+      ratings = (typeof Api !== 'undefined' && Api.getRatingsMap) ? await Api.getRatingsMap() : {};
+    } catch (_) {
+      ratings = {};
+    }
+    const list = Array.isArray(products) ? products : [];
+    container.innerHTML = list.length
+      ? (await Promise.all(list.map((p) => cardHTML(p, currency, ratings[p.id])))).join('')
       : '';
     bindCardEvents(container);
   }
@@ -465,10 +487,43 @@ const UI = (() => {
     return String(fromSocial || '').trim();
   }
 
+  /** Turn @user / t.me/user / phone into a clickable absolute URL. */
+  function normalizeContactHref(key, raw) {
+    let v = String(raw || '').trim();
+    if (!v) return '';
+    if (key === 'email') return v;
+    if (/^https?:\/\//i.test(v)) return v;
+
+    if (key === 'telegram') {
+      v = v.replace(/^(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\//i, '').replace(/^@+/, '');
+      const user = v.split(/[/?#\s]/)[0].replace(/^@+/, '');
+      return user ? `https://t.me/${user}` : '';
+    }
+
+    if (key === 'instagram') {
+      v = v.replace(/^(?:https?:\/\/)?(?:www\.)?instagram\.com\//i, '').replace(/^@+/, '');
+      const user = v.split(/[/?#\s]/)[0].replace(/^@+/, '');
+      return user ? `https://instagram.com/${user}` : '';
+    }
+
+    if (key === 'whatsapp') {
+      const lower = v.toLowerCase();
+      if (lower.includes('wa.me') || lower.includes('whatsapp.com') || lower.includes('api.whatsapp')) {
+        return lower.startsWith('http') ? v : `https://${v.replace(/^\/\//, '')}`;
+      }
+      const digits = v.replace(/[^\d]/g, '');
+      return digits ? `https://wa.me/${digits}` : '';
+    }
+
+    return v;
+  }
+
   function contactLabel(url) {
     const v = String(url || '').trim();
     if (!v) return '';
-    if (v.includes('@') && !/^https?:\/\//i.test(v) && !v.includes('t.me')) return v;
+    if (v.includes('@') && !/^https?:\/\//i.test(v) && !v.includes('t.me')) {
+      return v.startsWith('@') ? v : '@' + v;
+    }
     const path = v.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split(/[?#]/)[0];
     const parts = path.split('/').filter(Boolean);
     let last = parts[parts.length - 1] || '';
@@ -489,6 +544,7 @@ const UI = (() => {
     syncCounts,
     escapeHtml,
     pickContact,
+    normalizeContactHref,
     contactLabel,
     ratingStars,
     getSettings,

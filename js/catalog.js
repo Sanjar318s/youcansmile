@@ -5,10 +5,14 @@
   document.documentElement.lang = I18n.lang;
   applyI18n();
   await Api.init();
-  const s = await Api.getSettings();
-  await UI.renderHeader('catalog');
-  await UI.renderFooter();
+  const [s, , cats, allProducts] = await Promise.all([
+    Api.getSettings(),
+    Promise.all([UI.renderHeader('catalog'), UI.renderFooter()]),
+    Api.getCategories(),
+    Api.getProducts(),
+  ]);
 
+  const products = Array.isArray(allProducts) ? allProducts : [];
   const params = new URLSearchParams(location.search);
 
   let state = {
@@ -27,11 +31,10 @@
   const sortSelect = document.getElementById('sortSelect');
 
   /* категории */
-  const cats = await Api.getCategories();
   const catChips = document.getElementById('catChips');
   catChips.innerHTML =
     `<button class="chip ${state.cat === 'all' ? 'active' : ''}" data-cat="all">${I18n.t('cat_all')}</button>` +
-    cats
+    (Array.isArray(cats) ? cats : [])
       .map(
         (c) =>
           `<button class="chip ${state.cat === c.id ? 'active' : ''}" data-cat="${c.id}">${c.icon || ''} ${I18n.txt(c.name)}</button>`
@@ -56,15 +59,23 @@
   onlyStock.checked = state.onlyStock;
   sortSelect.value = state.sort;
 
-  function applyFilters() {
+  function titleMatch(p, q) {
+    const t = p && p.title;
+    if (!t) return false;
+    if (typeof t === 'string') return t.toLowerCase().includes(q);
+    return (
+      String(t.ru || '').toLowerCase().includes(q) ||
+      String(t.en || '').toLowerCase().includes(q) ||
+      String(t.uz || '').toLowerCase().includes(q)
+    );
+  }
+
+  async function applyFilters() {
     let list = state.q
-      ? allProducts.filter(
-          (p) =>
-            p.title.ru.toLowerCase().includes(state.q) ||
-            p.title.en.toLowerCase().includes(state.q) ||
-            (p.tags || []).join(' ').toLowerCase().includes(state.q)
+      ? products.filter(
+          (p) => titleMatch(p, state.q) || (p.tags || []).join(' ').toLowerCase().includes(state.q)
         )
-      : [...allProducts];
+      : products.slice();
 
     if (state.cat !== 'all') list = list.filter((p) => p.categoryId === state.cat);
     if (state.priceFrom) list = list.filter((p) => p.price >= Number(state.priceFrom));
@@ -81,7 +92,27 @@
 
     countLabel.textContent = `${list.length} ${I18n.t('results')}`;
     empty.classList.toggle('hidden', list.length > 0);
-    UI.renderGrid(grid, list, s.currency);
+    if (!grid) return;
+    try {
+      await UI.renderGrid(grid, list, s && s.currency);
+    } catch (err) {
+      console.error('catalog renderGrid', err);
+      grid.innerHTML = list
+        .map((p) => {
+          const title = I18n.txt(p.title) || p.id;
+          const img = (p.images && p.images[0]) || 'img/logo-ycs.png';
+          return `<article class="card">
+            <a class="card-img" href="product.html?id=${encodeURIComponent(p.id)}">
+              <img src="${img}" alt="" loading="lazy"/>
+            </a>
+            <div class="card-body">
+              <a class="card-title" href="product.html?id=${encodeURIComponent(p.id)}">${UI.escapeHtml(title)}</a>
+              <div class="card-price"><b>${Store.formatPrice(p.price, s || {})}</b></div>
+            </div>
+          </article>`;
+        })
+        .join('');
+    }
   }
 
   priceFrom.addEventListener('input', () => { state.priceFrom = priceFrom.value; applyFilters(); });
@@ -96,6 +127,5 @@
     applyFilters();
   });
 
-  const allProducts = await Api.getProducts();
-  applyFilters();
+  await applyFilters();
 })();

@@ -19,14 +19,18 @@ module.exports = async (req, res) => {
     if (req.method === 'POST') {
       const body = (await readBody(req)) || {};
       const me = await getSessionUser(req);
+      if (!me || me.role !== 'customer') {
+        return json(res, 401, { error: 'auth', message: 'login_required' });
+      }
       const order = Object.assign(
         {
           id: uid('o'),
           createdAt: Date.now(),
           status: 'new',
-          customerId: me && me.role === 'customer' ? me.id : body.customerId || null,
+          customerId: me.id,
         },
-        body
+        body,
+        { customerId: me.id }
       );
       await saveOrder(order);
       return json(res, 201, order);

@@ -1,5 +1,6 @@
-const { cors, redirect, baseUrl, text } = require(require('path').resolve(process.cwd(), 'lib/http'));
+const { cors, redirect, baseUrl } = require(require('path').resolve(process.cwd(), 'lib/http'));
 const { upsertGoogleCustomer, createSession } = require(require('path').resolve(process.cwd(), 'lib/auth'));
+const { ensureCustomerSchema } = require(require('path').resolve(process.cwd(), 'lib/db'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
@@ -11,6 +12,7 @@ module.exports = async (req, res) => {
   const origin = baseUrl(req);
   const redirectUri = `${origin}/api/auth/google/callback`;
   try {
+    await ensureCustomerSchema();
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -36,6 +38,7 @@ module.exports = async (req, res) => {
     await createSession(res, { role: 'customer', customerId: user.id, ...user });
     return redirect(res, '/account.html');
   } catch (e) {
-    return text(res, 500, e.message);
+    console.error('google_oauth', e.message);
+    return redirect(res, '/account.html?err=google');
   }
 };

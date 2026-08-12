@@ -4,10 +4,12 @@
 const Hero3D = (() => {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let rafId = null;
+  let running = false;
   let particles = [];
   let canvas = null;
   let ctx = null;
   let mouse = { x: 0.5, y: 0.5 };
+  let io = null;
 
   function resizeCanvas() {
     if (!canvas) return;
@@ -68,8 +70,25 @@ const Hero3D = (() => {
   }
 
   function frame(now) {
+    if (!running) return;
+    if (document.hidden) {
+      rafId = null;
+      return;
+    }
     drawParticles(now);
     rafId = requestAnimationFrame(frame);
+  }
+
+  function startLoop() {
+    if (running || reduced) return;
+    running = true;
+    if (!rafId) rafId = requestAnimationFrame(frame);
+  }
+
+  function stopLoop() {
+    running = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
   }
 
   function syncReflection(titleEl) {
@@ -152,7 +171,28 @@ const Hero3D = (() => {
     window.addEventListener('resize', onResize);
     hero._heroResize = onResize;
 
-    rafId = requestAnimationFrame(frame);
+    const onVisibility = () => {
+      if (document.hidden) stopLoop();
+      else if (hero._heroVisible) startLoop();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    hero._heroVisibility = onVisibility;
+
+    if ('IntersectionObserver' in window) {
+      io = new IntersectionObserver(
+        (entries) => {
+          const visible = entries.some((e) => e.isIntersecting);
+          hero._heroVisible = visible;
+          if (visible && !document.hidden) startLoop();
+          else stopLoop();
+        },
+        { threshold: 0.05 }
+      );
+      io.observe(hero);
+    } else {
+      hero._heroVisible = true;
+      startLoop();
+    }
   }
 
   function setTitle(text) {
@@ -162,12 +202,16 @@ const Hero3D = (() => {
   }
 
   function destroy() {
-    if (rafId) cancelAnimationFrame(rafId);
-    rafId = null;
+    stopLoop();
+    if (io) {
+      io.disconnect();
+      io = null;
+    }
     const hero = document.getElementById('hero');
     if (hero) {
       if (hero._heroMove) hero.removeEventListener('mousemove', hero._heroMove);
       if (hero._heroResize) window.removeEventListener('resize', hero._heroResize);
+      if (hero._heroVisibility) document.removeEventListener('visibilitychange', hero._heroVisibility);
     }
   }
 
