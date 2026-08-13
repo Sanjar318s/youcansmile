@@ -2612,8 +2612,9 @@ html[data-theme='purple'] .cur-btn.active {
 .pay-requisites {
   margin-top: 12px; padding: 16px 18px; border-radius: 16px;
   background: #f8f3e6; border: 1px dashed #c9b88a; font-size: 0.92rem;
+  color: #3f4f34;
 }
-.pay-requisites b { display: block; margin-bottom: 6px; }
+.pay-requisites b { display: block; margin-bottom: 6px; color: inherit; }
 .pay-card-row {
   display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0 10px;
 }
@@ -2631,10 +2632,37 @@ html[data-theme='purple'] .cur-btn.active {
 .pay-receipt-btn {
   display: inline-flex; align-items: center; justify-content: center;
   padding: 8px 14px; border-radius: 999px; border: 1.5px solid #c9b88a;
-  background: #fff; font-weight: 800; font-size: 0.85rem;
+  background: #fff; font-weight: 800; font-size: 0.85rem; color: #3f4f34;
 }
 .pay-receipt-name { font-size: 0.85rem; color: #7a7160; }
 .pay-hint { text-align: left !important; margin-top: 8px; color: #e67e63; }
+html[data-theme='purple'] .pay-requisites {
+  background: #1a122c;
+  border: 1px dashed rgba(167, 139, 250, 0.45);
+  color: #f3e8ff;
+}
+html[data-theme='purple'] .pay-requisites > b { color: #f8f0ff; }
+html[data-theme='purple'] .pay-card-number { color: #faf5ff; }
+html[data-theme='purple'] .pay-recipient { color: #e9d5ff; }
+html[data-theme='purple'] .pay-recipient b { color: #faf5ff; }
+html[data-theme='purple'] .pay-note { color: #c4b5fd; }
+html[data-theme='purple'] .pay-receipt-label { color: #e9d5ff; }
+html[data-theme='purple'] .pay-receipt-btn {
+  background: #2a1a45;
+  border-color: rgba(167, 139, 250, 0.55);
+  color: #f8f0ff;
+}
+html[data-theme='purple'] .pay-receipt-name { color: #a78bfa; }
+html[data-theme='purple'] .pay-requisites .btn-secondary {
+  background: #2a1a45;
+  color: #f8f0ff !important;
+  border-color: rgba(167, 139, 250, 0.55);
+}
+html[data-theme='purple'] .pay-requisites .btn-secondary:hover {
+  background: rgba(168, 85, 247, 0.35);
+  border-color: #d8b4fe;
+}
+html[data-theme='purple'] .pay-hint { color: #fca5a5; }
 .header-settings { position: relative; }
 .settings-panel {
   position: absolute; right: 0; top: calc(100% + 10px); z-index: 130;
