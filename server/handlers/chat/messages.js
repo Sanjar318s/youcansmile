@@ -90,15 +90,16 @@ module.exports = async (req, res) => {
         await notifySellerLive(toTelegramMsg(msg), customer, thread.id, orderId);
       } else {
         const history = await getMessages(thread.id);
-        const { answer, escalate } = await aiReply(msg.text, orders, settings, { history });
+        const { answer, escalate, payload } = await aiReply(msg.text, orders, settings, { history });
 
         if (answer) {
           const agentMsg = {
             id: uid('m'),
             threadId: thread.id,
             author: 'agent',
-            type: 'text',
+            type: payload ? 'product' : 'text',
             text: answer,
+            payload,
             createdAt: Date.now(),
           };
           await saveMessage(agentMsg);

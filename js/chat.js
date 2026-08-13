@@ -99,6 +99,54 @@ const Chat = (() => {
       </a>`;
   }
 
+  function productCardHTML(p) {
+    const img = p.image || 'img/logo-ycs.png';
+    const price = typeof Store !== 'undefined' ? Store.formatPrice(p.price) : `${p.price} UZS`;
+    const stockCls = p.inStock ? 'ok' : 'no';
+    const stockLabel = p.inStock ? I18n.t('chat_prod_instock') : I18n.t('chat_prod_outstock');
+    return `
+      <div class="chat-prod" data-pid="${escape(p.id)}">
+        <img class="chat-prod-img" src="${escape(img)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='img/logo-ycs.png'"/>
+        <div class="chat-prod-info">
+          <div class="chat-prod-title">${escape(p.title)}</div>
+          ${p.category ? `<div class="chat-prod-cat">${escape(p.category)}</div>` : ''}
+          <div class="chat-prod-price">${escape(String(price))}</div>
+          <span class="chat-prod-stock ${stockCls}">${escape(stockLabel)}</span>
+        </div>
+        <div class="chat-prod-actions">
+          <button type="button" class="chat-prod-btn" data-act="cart" data-pid="${escape(p.id)}">${escape(I18n.t('chat_prod_cart'))}</button>
+          <button type="button" class="chat-prod-btn" data-act="fav" data-pid="${escape(p.id)}">${escape(I18n.t('chat_prod_fav'))}</button>
+          <button type="button" class="chat-prod-btn primary" data-act="buy" data-pid="${escape(p.id)}">${escape(I18n.t('chat_prod_buy'))}</button>
+        </div>
+      </div>`;
+  }
+
+  function renderProductMessage(m) {
+    let payload = m.payload;
+    if (typeof payload === 'string') {
+      try {
+        payload = JSON.parse(payload);
+      } catch (_) {
+        payload = null;
+      }
+    }
+    const products = payload && Array.isArray(payload.products) ? payload.products : payload ? [payload] : [];
+    const cards = products.slice(0, 3).map(productCardHTML).join('');
+    const reply = m.replyToId
+      ? `<div class="chat-reply-ref">${I18n.t('chat_reply')} #${escape(String(m.replyToId).slice(-6))}</div>`
+      : '';
+    return `
+      <div class="chat-msg theirs agent product" data-id="${escape(m.id)}">
+        <div class="chat-avatar" title="${escape(authorLabel('agent'))}">${AVATARS.agent}</div>
+        <div class="chat-bubble">
+          <div class="chat-author">${escape(authorLabel('agent'))}</div>
+          ${reply}
+          ${m.text ? `<p>${escape(m.text)}</p>` : ''}
+          <div class="chat-prod-list">${cards}</div>
+        </div>
+      </div>`;
+  }
+
   function renderMessage(m) {
     if (m.type === 'typing') {
       return `
@@ -109,6 +157,9 @@ const Chat = (() => {
             <span class="chat-typing-label">${escape(I18n.t('chat_typing'))}</span>
           </div>
         </div>`;
+    }
+    if (m.type === 'product') {
+      return renderProductMessage(m);
     }
     const mine = m.author === 'customer';
     const pending = m._pending ? ' pending' : '';
@@ -899,6 +950,28 @@ const Chat = (() => {
     if (delegated || !listEl) return;
     delegated = true;
     listEl.addEventListener('click', (e) => {
+      const pbtn = e.target.closest('[data-act]');
+      if (pbtn && listEl.contains(pbtn)) {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = pbtn.dataset.pid;
+        const act = pbtn.dataset.act;
+        if (!id) return;
+        if (act === 'cart') {
+          Store.addToCart(id, 1);
+          UI.toast(I18n.t('toast_cart_ok'));
+          if (UI.syncCounts) UI.syncCounts();
+        } else if (act === 'fav') {
+          const added = Store.toggleFavorite(id);
+          UI.toast(added ? I18n.t('product_fav_added') : I18n.t('product_fav_removed'));
+          if (UI.syncCounts) UI.syncCounts();
+        } else if (act === 'buy') {
+          Store.addToCart(id, 1);
+          if (UI.syncCounts) UI.syncCounts();
+          location.href = 'cart.html';
+        }
+        return;
+      }
       const btn = e.target.closest('[data-reply]');
       if (btn && listEl.contains(btn)) {
         e.preventDefault();
