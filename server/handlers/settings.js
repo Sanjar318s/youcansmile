@@ -1,6 +1,7 @@
 const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
 const { ensureSeeded } = require(require('path').resolve(process.cwd(), 'lib/seed'));
 const { getSettings, saveSettings } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const { mergePromoSettings } = require(require('path').resolve(process.cwd(), 'lib/promo-defaults'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
@@ -8,14 +9,14 @@ module.exports = async (req, res) => {
     await ensureSeeded();
     if (req.method === 'GET') {
       const s = await getSettings();
-      return json(res, 200, s || {}, {
+      return json(res, 200, mergePromoSettings(s || {}), {
         'Cache-Control': 'public, max-age=30, s-maxage=60',
       });
     }
     if (req.method === 'PUT') {
       const body = (await readBody(req)) || {};
       await saveSettings(body);
-      return json(res, 200, body);
+      return json(res, 200, mergePromoSettings(body));
     }
     return json(res, 405, { error: 'method' });
   } catch (e) {

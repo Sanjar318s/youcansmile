@@ -230,7 +230,18 @@ const Api = {
   /* -------------------------- настройки ---------------------- */
   async getSettings() {
     if (this.mode === 'remote') {
-      return this._cacheGet('settings', () => this._remote('/api/settings'));
+      return this._cacheGet('settings', async () => {
+        const s = (await this._remote('/api/settings')) || {};
+        if (!Array.isArray(s.promos) || !s.promos.length) {
+          s.promos = (Seed.settings().promos || []).slice();
+        }
+        s.promoSlider = Object.assign(
+          { bgMode: 'preset', preset: 'aurora', imageUrl: '', overlay: 0.35 },
+          Seed.settings().promoSlider || {},
+          s.promoSlider || {}
+        );
+        return s;
+      });
     }
     const seed = Seed.settings();
     const s = this._ls(this.KEYS.settings, seed);
@@ -243,6 +254,11 @@ const Api = {
       cardRequisites: s.cardRequisites || seed.cardRequisites,
       pickupPoints: Array.isArray(s.pickupPoints) ? s.pickupPoints : seed.pickupPoints,
       promos: Array.isArray(s.promos) && s.promos.length ? s.promos : seed.promos,
+      promoSlider: Object.assign(
+        { bgMode: 'preset', preset: 'aurora', imageUrl: '', overlay: 0.35 },
+        seed.promoSlider || {},
+        s.promoSlider || {}
+      ),
       appearance: Object.assign({}, seed.appearance, s.appearance || {}, {
         colors: Object.assign({}, seed.appearance.colors, (s.appearance && s.appearance.colors) || {}),
       }),
@@ -678,6 +694,12 @@ const Seed = (() => {
           href: 'custom-order.html',
         },
       ],
+      promoSlider: {
+        bgMode: 'preset',
+        preset: 'aurora',
+        imageUrl: '',
+        overlay: 0.35,
+      },
       heroTitle: { ru: 'YouCanSmile', uz: 'YouCanSmile', en: 'YouCanSmile' },
       heroSubtitle: {
         ru: 'Украшения ручной работы: брелки, кулоны, чокеры, браслеты и подвески для телефона.',

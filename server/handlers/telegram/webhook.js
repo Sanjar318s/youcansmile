@@ -29,8 +29,14 @@ const {
   shortId,
   customerLabel,
   getSellerChatId,
+  getSellerChatIds,
+  isAllowedTelegramUser,
+  isOwnerUsername,
+  normUser,
+  addAllowedUser,
+  deleteAllowedUser,
 } = require(require('path').resolve(process.cwd(), 'lib/telegram'));
-const { getOrder, getOrders, getOrdersByStatus, getOrderByNumber } = require(
+const { getOrder, getOrders, getOrdersByStatus, getOrderByNumber, getSettings, saveSettings } = require(
   require('path').resolve(process.cwd(), 'lib/data')
 );
 const { ORDER_STATUSES, statusLabelRu, orderNumber } = require(require('path').resolve(process.cwd(), 'lib/orders'));
@@ -61,14 +67,20 @@ function isMenuText(t) {
     s === '/help' ||
     s === '/start' ||
     s.startsWith('/start ') ||
-    s.startsWith('/connect')
+    s.startsWith('/connect') ||
+    s === '➕ Добавить пользователя' ||
+    s === '➖ Удалить пользователя' ||
+    s === '/adduser' ||
+    s === '/deluser'
   );
 }
 
 async function assertSellerChat(chatId) {
-  const seller = String((await getSellerChatId()) || process.env.TELEGRAM_SELLER_CHAT_ID || '');
-  if (!seller) return true;
-  return String(chatId) === seller;
+  const ids = await getSellerChatIds();
+  const single = String((await getSellerChatId()) || process.env.TELEGRAM_SELLER_CHAT_ID || '');
+  const all = ids.length ? ids : [single].filter(Boolean);
+  if (!all.length) return true;
+  return all.includes(String(chatId));
 }
 
 function mergeInline(...kbs) {
@@ -77,6 +89,27 @@ function mergeInline(...kbs) {
     if (kb && Array.isArray(kb.inline_keyboard)) rows.push(...kb.inline_keyboard);
   }
   return rows.length ? { inline_keyboard: rows } : undefined;
+}
+
+async function setPendingAction(chatId, action) {
+  try {
+    const s = (await getSettings()) || {};
+    await saveSettings({ ...s, telegramPendingAction: { chatId: String(chatId), action, ts: Date.now() } });
+  } catch (_) {}
+}
+
+async function clearPendingAction() {
+  try {
+    const s = (await getSettings()) || {};
+    if (!s.telegramPendingAction) return;
+    const { telegramPendingAction: _drop, ...rest } = s;
+    await saveSettings(rest);
+  } catch (_) {}
+}
+
+function looksLikeUsername(raw) {
+  const u = normUser(raw);
+  return /^[a-z][a-z0-9_]{4,31}$/.test(u) ? u : '';
 }
 
 async function orderCounts() {
@@ -299,10 +332,12 @@ async function doDisconnect(chatId) {
   });
 }
 
-async function handleMenuCommand(chatId, rawText) {
+async function handleMenuCommand(msg) {
+  const chatId = msg?.chat?.id;
+  const rawText = msg?.text;
   const t = String(rawText || '').trim();
   if (t === '/start' || t.startsWith('/start ')) {
-    await registerSellerChat(chatId);
+    await registerSellerChat(chatId, msg.from?.username);
     await sendSellerHelp(chatId);
     return true;
   }
@@ -332,6 +367,38 @@ async function handleMenuCommand(chatId, rawText) {
   }
   if (t === '❓ Помощь' || t === '/help') {
     await sendSellerHelp(chatId);
+    return true;
+  }
+  if (t === '➕ Добавить пользователя' || t === '/adduser') {
+    if (!isOwnerUsername(msg.from && msg.from.username)) {
+      await sendTelegram({
+        chat_id: chatId,
+        text: '⛔ Управление пользователями доступно только владельцам.',
+        reply_markup: sellerMainKeyboard(),
+      });
+      return true;
+    }
+    await setPendingAction(chatId, 'add');
+    await sendTelegram({
+      chat_id: chatId,
+      text: '👤 Пришлите @username нового пользователя.\nОн будет получать уведомления и сможет отвечать в чаты.\n«❌ Отмена» — отменить.',
+    });
+    return true;
+  }
+  if (t === '➖ Удалить пользователя' || t === '/deluser') {
+    if (!isOwnerUsername(msg.from && msg.from.username)) {
+      await sendTelegram({
+        chat_id: chatId,
+        text: '⛔ Управление пользователями доступно только владельцам.',
+        reply_markup: sellerMainKeyboard(),
+      });
+      return true;
+    }
+    await setPendingAction(chatId, 'del');
+    await sendTelegram({
+      chat_id: chatId,
+      text: '👤 Пришлите @username пользователя, которого нужно удалить.\n«❌ Отмена» — отменить.',
+    });
     return true;
   }
   if (t.startsWith('/connect')) {
@@ -479,6 +546,19 @@ module.exports = async (req, res) => {
   try {
     const update = (await readBody(req)) || {};
 
+    const gateFrom = update.message?.from || update.edited_message?.from || update.callback_query?.from;
+    if (gateFrom && !(await isAllowedTelegramUser(gateFrom))) {
+      if (update.callback_query) {
+        await answerCallback(update.callback_query.id, '⛔ Нет доступа');
+      } else {
+        const denyChatId = update.message?.chat?.id || update.edited_message?.chat?.id;
+        if (denyChatId) {
+          await sendTelegram({ chat_id: denyChatId, text: '⛔ У вас нет доступа к этому боту.' });
+        }
+      }
+      return json(res, 200, { ok: true, denied: true });
+    }
+
     if (update.callback_query) {
       await handleCallback(update.callback_query);
       return json(res, 200, { ok: true, callback: true });
@@ -486,14 +566,74 @@ module.exports = async (req, res) => {
 
     const msg = update.message || update.edited_message;
     if (!msg) return json(res, 200, { ok: true });
+    if (!gateFrom) return json(res, 200, { ok: true, skip: 'no_from' });
 
     const chatId = msg.chat?.id;
     if (!chatId) return json(res, 200, { ok: true });
 
     // Menu commands
     if (msg.text && isMenuText(msg.text)) {
-      const handled = await handleMenuCommand(chatId, msg.text);
+      const handled = await handleMenuCommand(msg);
       if (handled) return json(res, 200, { ok: true, menu: true });
+    }
+
+    // Owner user-management flow (pending add/del), before any chat routing
+    const pending = (await getSettings().catch(() => null))?.telegramPendingAction;
+    if (
+      pending &&
+      isOwnerUsername(msg.from && msg.from.username) &&
+      String(pending.chatId) === String(chatId)
+    ) {
+      if (msg.text && String(msg.text).trim() === '❌ Отмена') {
+        await clearPendingAction();
+        await sendTelegram({ chat_id: chatId, text: 'Отменено.' });
+        return json(res, 200, { ok: true, pending: true });
+      }
+      const uname = msg.text ? looksLikeUsername(msg.text) : '';
+      if (uname && Date.now() - Number(pending.ts || 0) <= 120000) {
+        if (pending.action === 'add') {
+          const r = await addAllowedUser(uname);
+          const text =
+            r.ok
+              ? `✅ @${uname} добавлен. Он получает уведомления и может отвечать в чаты.`
+              : r.error === 'owner'
+                ? `⛔ @${uname} — владелец, его нельзя добавить/удалить.`
+                : r.error === 'exists'
+                  ? `ℹ️ @${uname} уже в списке.`
+                  : 'Не удалось добавить.';
+          await clearPendingAction();
+          await sendTelegram({ chat_id: chatId, text });
+        } else if (pending.action === 'del') {
+          const r = await deleteAllowedUser(uname);
+          const text =
+            r.ok
+              ? `🗑️ @${uname} удалён и больше не получает уведомления.`
+              : r.error === 'owner'
+                ? `⛔ @${uname} — владелец, удалить нельзя.`
+                : r.error === 'missing'
+                  ? `ℹ️ @${uname} не в списке.`
+                  : 'Не удалось удалить.';
+          await clearPendingAction();
+          await sendTelegram({ chat_id: chatId, text });
+        }
+        return json(res, 200, { ok: true, users: true });
+      }
+      if (msg.text) {
+        if (uname) {
+          await clearPendingAction();
+          await sendTelegram({
+            chat_id: chatId,
+            text: '⏳ Время на ввод истекло. Нажмите кнопку ещё раз.',
+            reply_markup: sellerMainKeyboard(),
+          });
+        } else {
+          await sendTelegram({
+            chat_id: chatId,
+            text: 'Это не похоже на @username. Пришлите username (например @someone) или «❌ Отмена».',
+          });
+        }
+        return json(res, 200, { ok: true, pending: true });
+      }
     }
 
     // Order number search (4–6 digits) when not routing as a chat reply

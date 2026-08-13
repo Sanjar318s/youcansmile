@@ -47,6 +47,8 @@ async function main() {
   vercelEnvAdd('TURSO_AUTH_TOKEN', env.TURSO_AUTH_TOKEN);
   vercelEnvAdd('TELEGRAM_BOT_TOKEN', env.TELEGRAM_BOT_TOKEN);
   if (env.TELEGRAM_SELLER_CHAT_ID) vercelEnvAdd('TELEGRAM_SELLER_CHAT_ID', env.TELEGRAM_SELLER_CHAT_ID);
+  if (env.TELEGRAM_SELLER_CHAT_IDS) vercelEnvAdd('TELEGRAM_SELLER_CHAT_IDS', env.TELEGRAM_SELLER_CHAT_IDS);
+  if (env.TELEGRAM_OWNER_USERS) vercelEnvAdd('TELEGRAM_OWNER_USERS', env.TELEGRAM_OWNER_USERS);
 
   console.log('Redeploying…');
   const dep = spawnSync('vercel', ['deploy', '--prod', '--yes'], { cwd: root, encoding: 'utf8', shell: true });

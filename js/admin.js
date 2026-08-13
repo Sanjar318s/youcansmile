@@ -28,7 +28,7 @@
     }
   });
 
-  /* ---------- картинка из файла (сжимаем до ~900px) --------- */
+  /* ---------- картинка из файла (базовый ресайз) --------- */
   function fileToDataURL(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -51,6 +51,16 @@
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  }
+
+  /** Товарные фото: сжатие + лёгкое улучшение */
+  async function optimizeProductImage(input) {
+    if (typeof ImageOptimize !== 'undefined') {
+      const out = await ImageOptimize.product(input);
+      return out.dataUrl;
+    }
+    if (typeof input === 'string') return input;
+    return fileToDataURL(input);
   }
 
   /* ============================ ВХОД ======================== */
@@ -99,6 +109,7 @@
     products: renderProducts,
     categories: renderCategories,
     orders: renderOrders,
+    slider: renderSlider,
     settings: renderSettings,
   };
 
@@ -407,6 +418,7 @@
         </div>
         <div class="field full">
           <label>${I18n.t('admin_images')}</label>
+          <p class="set-hint" style="margin:0 0 10px">${I18n.t('admin_images_optimize_hint')}</p>
           <div class="img-grid" id="imgGrid"></div>
           <label class="img-add" title="${I18n.t('admin_add_image')}">
             <input type="file" id="fFiles" accept="image/*" multiple style="display:none;"/>
@@ -482,13 +494,23 @@
 
       document.getElementById('fFiles').addEventListener('change', async (e) => {
         const files = [...e.target.files];
+        const input = e.target;
+        if (!files.length) return;
+        UI.toast(I18n.t('admin_optimizing_images'));
         for (const f of files) {
-          if (f.size > 5 * 1024 * 1024) continue;
+          if (f.size > 20 * 1024 * 1024) {
+            UI.toast(I18n.t('admin_image_too_large'));
+            continue;
+          }
           try {
-            state.images.push(await fileToDataURL(f));
-          } catch (err) {}
+            state.images.push(await optimizeProductImage(f));
+          } catch (err) {
+            console.error(err);
+            UI.toast(I18n.t('admin_image_optimize_fail'));
+          }
         }
         paintImages();
+        input.value = '';
       });
 
       const back = () => renderProducts();
@@ -574,7 +596,9 @@
     for (const img of images || []) {
       if (typeof img === 'string' && img.startsWith('data:')) {
         try {
-          const up = await Api.uploadMedia(img, 'image/jpeg');
+          const mimeMatch = img.match(/^data:([^;]+);/);
+          const mime = (mimeMatch && mimeMatch[1]) || 'image/jpeg';
+          const up = await Api.uploadMedia(img, mime);
           out.push(up.url || img);
         } catch (_) {
           out.push(img);
@@ -1223,6 +1247,306 @@
   }
 
   /* ------------------------- настройки --------------------- */
+  /* ------------------------- слайдер ----------------------- */
+  async function renderSlider() {
+    settings = await Api.getSettings();
+    const PRESETS = [
+      { id: 'aurora', label: 'Aurora' },
+      { id: 'sage', label: 'Sage' },
+      { id: 'coral', label: 'Coral' },
+      { id: 'violet', label: 'Violet' },
+      { id: 'cream', label: 'Cream' },
+    ];
+    const TONES = ['sage', 'coral', 'cream', 'purple'];
+
+    function bgCfg() {
+      return Object.assign(
+        { bgMode: 'preset', preset: 'aurora', imageUrl: '', overlay: 0.35 },
+        settings.promoSlider || {}
+      );
+    }
+
+    function listView() {
+      const bg = bgCfg();
+      const promos = Array.isArray(settings.promos) ? settings.promos : [];
+      const overlayPct = Math.round((Number(bg.overlay) || 0) * 100);
+
+      content.innerHTML = `
+        <h2 style="font-size:1.4rem; margin-bottom:18px;">🎞️ ${I18n.t('admin_slider')}</h2>
+
+        <section class="adm-list-panel slider-bg-panel">
+          <h3 class="slider-sec-title">${I18n.t('admin_slider_bg')}</h3>
+          <div class="slider-mode-row">
+            <label class="slider-mode-chip"><input type="radio" name="bgMode" value="preset" ${bg.bgMode !== 'image' ? 'checked' : ''}/> ${I18n.t('admin_slider_bg_preset')}</label>
+            <label class="slider-mode-chip"><input type="radio" name="bgMode" value="image" ${bg.bgMode === 'image' ? 'checked' : ''}/> ${I18n.t('admin_slider_bg_image')}</label>
+          </div>
+          <div class="slider-presets" id="sliderPresets">
+            ${PRESETS.map(
+              (p) => `
+              <button type="button" class="slider-preset-card${bg.preset === p.id ? ' is-active' : ''}" data-preset="${p.id}" data-bg="${p.id}" title="${p.label}">
+                <span class="slider-preset-swatch" data-bg="${p.id}"></span>
+                <span>${p.label}</span>
+              </button>`
+            ).join('')}
+          </div>
+          <div class="slider-image-row" id="sliderImageRow" ${bg.bgMode === 'image' ? '' : 'hidden'}>
+            <div class="slider-image-preview" id="sliderImagePreview" ${bg.imageUrl ? `style="background-image:url('${UI.escapeHtml(bg.imageUrl)}')"` : ''}></div>
+            <div class="slider-image-actions">
+              <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+                ${I18n.t('admin_add_image')}
+                <input type="file" id="sliderBgFile" accept="image/*" hidden/>
+              </label>
+              <div class="field" style="margin:12px 0 0">
+                <label>${I18n.t('admin_slider_overlay')}: <strong id="overlayVal">${overlayPct}%</strong></label>
+                <input type="range" id="sliderOverlay" min="0" max="70" step="5" value="${overlayPct}"/>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" id="saveBgBtn" style="margin-top:14px">${I18n.t('admin_slider_save_bg')}</button>
+        </section>
+
+        <div class="adm-toolbar" style="margin-top:22px">
+          <h3 class="slider-sec-title" style="margin:0;flex:1">${I18n.t('admin_slider_slides')}</h3>
+          <button type="button" class="btn btn-primary btn-sm" id="addSlideBtn">+ ${I18n.t('admin_slider_add')}</button>
+        </div>
+        <div class="adm-list-panel">
+          ${
+            promos.length
+              ? `<div class="slider-slide-list">${promos
+                  .map((p, i) => {
+                    const tone = p.tone || 'sage';
+                    const badge = UI.escapeHtml((p.badge && p.badge.ru) || '');
+                    const title = UI.escapeHtml((p.title && p.title.ru) || '');
+                    return `<div class="slider-slide-card" data-tone="${tone}">
+                      <div class="slider-slide-meta">
+                        <span class="slider-tone-dot" data-tone="${tone}"></span>
+                        <div>
+                          <div class="slider-slide-badge">${badge || '—'}</div>
+                          <div class="slider-slide-title">${title || '—'}</div>
+                        </div>
+                      </div>
+                      <div class="slider-slide-actions">
+                        <button type="button" class="btn btn-ghost btn-sm" data-edit="${i}">${I18n.t('admin_edit')}</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-del="${i}">✕</button>
+                      </div>
+                    </div>`;
+                  })
+                  .join('')}</div>`
+              : `<p class="adm-empty">${I18n.t('admin_slider_add')}</p>`
+          }
+        </div>`;
+
+      let draftBg = Object.assign({}, bg);
+
+      content.querySelectorAll('input[name="bgMode"]').forEach((r) => {
+        r.addEventListener('change', () => {
+          draftBg.bgMode = r.value;
+          const row = document.getElementById('sliderImageRow');
+          if (row) row.hidden = draftBg.bgMode !== 'image';
+        });
+      });
+
+      content.querySelectorAll('[data-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          draftBg.preset = btn.dataset.preset;
+          draftBg.bgMode = 'preset';
+          content.querySelectorAll('input[name="bgMode"]').forEach((r) => {
+            r.checked = r.value === 'preset';
+          });
+          const row = document.getElementById('sliderImageRow');
+          if (row) row.hidden = true;
+          content.querySelectorAll('.slider-preset-card').forEach((c) => {
+            c.classList.toggle('is-active', c.dataset.preset === draftBg.preset);
+          });
+        });
+      });
+
+      const overlayEl = document.getElementById('sliderOverlay');
+      const overlayVal = document.getElementById('overlayVal');
+      if (overlayEl) {
+        overlayEl.addEventListener('input', () => {
+          draftBg.overlay = Number(overlayEl.value) / 100;
+          if (overlayVal) overlayVal.textContent = overlayEl.value + '%';
+        });
+      }
+
+      const fileEl = document.getElementById('sliderBgFile');
+      if (fileEl) {
+        fileEl.addEventListener('change', async (e) => {
+          const f = e.target.files && e.target.files[0];
+          if (!f) return;
+          try {
+            const dataUrl = await fileToDataURL(f);
+            const up = await Api.uploadMedia(dataUrl, 'image/jpeg');
+            draftBg.imageUrl = up.url || dataUrl;
+            draftBg.bgMode = 'image';
+            content.querySelectorAll('input[name="bgMode"]').forEach((r) => {
+              r.checked = r.value === 'image';
+            });
+            const row = document.getElementById('sliderImageRow');
+            if (row) row.hidden = false;
+            const prev = document.getElementById('sliderImagePreview');
+            if (prev) prev.style.backgroundImage = `url('${draftBg.imageUrl}')`;
+          } catch (err) {
+            UI.toast(err && err.message ? err.message : 'Error');
+          }
+        });
+      }
+
+      document.getElementById('saveBgBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('saveBgBtn');
+        if (btn) btn.disabled = true;
+        try {
+          const latest = await Api.getSettings();
+          latest.promoSlider = {
+            bgMode: draftBg.bgMode === 'image' && draftBg.imageUrl ? 'image' : 'preset',
+            preset: draftBg.preset || 'aurora',
+            imageUrl: draftBg.imageUrl || '',
+            overlay: Math.min(0.7, Math.max(0, Number(draftBg.overlay) || 0.35)),
+          };
+          settings = await Api.saveSettings(latest);
+          if (Api.invalidateCache) Api.invalidateCache(['settings']);
+          UI.toast(I18n.t('admin_saved'));
+          listView();
+        } catch (err) {
+          UI.toast(err && err.message ? err.message : 'Error');
+          if (btn) btn.disabled = false;
+        }
+      });
+
+      document.getElementById('addSlideBtn').addEventListener('click', () => editView(null));
+      content.querySelectorAll('[data-edit]').forEach((btn) => {
+        btn.addEventListener('click', () => editView(Number(btn.dataset.edit)));
+      });
+      content.querySelectorAll('[data-del]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm(I18n.t('admin_slider_delete_confirm'))) return;
+          const idx = Number(btn.dataset.del);
+          const latest = await Api.getSettings();
+          const list = Array.isArray(latest.promos) ? latest.promos.slice() : [];
+          list.splice(idx, 1);
+          latest.promos = list;
+          settings = await Api.saveSettings(latest);
+          if (Api.invalidateCache) Api.invalidateCache(['settings']);
+          UI.toast(I18n.t('admin_deleted'));
+          listView();
+        });
+      });
+    }
+
+    async function editView(index) {
+      const promos = Array.isArray(settings.promos) ? settings.promos : [];
+      const p = index != null && promos[index] ? promos[index] : null;
+      const loc = (obj) => (obj && obj.ru) || '';
+      const tone = (p && p.tone) || 'coral';
+
+      content.innerHTML = `
+        <h2 style="font-size:1.4rem; margin-bottom:18px;">${p ? I18n.t('admin_slider_edit') : I18n.t('admin_slider_add')}</h2>
+        <p class="set-hint">${I18n.t('admin_auto_translate_hint')}</p>
+        <form class="adm-form" id="slideForm">
+          <div class="field">
+            <label>${I18n.t('admin_slider_badge')}</label>
+            <input id="slBadge" value="${UI.escapeHtml(loc(p && p.badge))}" required/>
+          </div>
+          <div class="field">
+            <label>${I18n.t('admin_slider_title')}</label>
+            <input id="slTitle" value="${UI.escapeHtml(loc(p && p.title))}" required/>
+          </div>
+          <div class="field full">
+            <label>${I18n.t('admin_slider_text')}</label>
+            <textarea id="slText" rows="3" required>${UI.escapeHtml(loc(p && p.text))}</textarea>
+          </div>
+          <div class="field">
+            <label>${I18n.t('admin_slider_cta')}</label>
+            <input id="slCta" value="${UI.escapeHtml(loc(p && p.cta))}" required/>
+          </div>
+          <div class="field">
+            <label>${I18n.t('admin_slider_href')}</label>
+            <input id="slHref" value="${UI.escapeHtml((p && p.href) || 'catalog.html')}" placeholder="catalog.html"/>
+          </div>
+          <div class="field full">
+            <label>${I18n.t('admin_slider_tone')}</label>
+            <div class="slider-tone-chips">
+              ${TONES.map(
+                (t) => `
+                <label class="slider-tone-chip" data-tone="${t}">
+                  <input type="radio" name="slTone" value="${t}" ${tone === t ? 'checked' : ''}/>
+                  <span>${t}</span>
+                </label>`
+              ).join('')}
+            </div>
+          </div>
+          <div class="adm-toolbar" style="margin-top:8px">
+            <button type="button" class="btn btn-ghost" id="slideBack">${I18n.t('admin_back')}</button>
+            <button type="submit" class="btn btn-primary">${I18n.t('admin_save')}</button>
+          </div>
+        </form>`;
+
+      document.getElementById('slideBack').addEventListener('click', listView);
+      document.getElementById('slideForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const ruBadge = document.getElementById('slBadge').value.trim();
+        const ruTitle = document.getElementById('slTitle').value.trim();
+        const ruText = document.getElementById('slText').value.trim();
+        const ruCta = document.getElementById('slCta').value.trim();
+        const href = document.getElementById('slHref').value.trim() || 'catalog.html';
+        const toneEl = content.querySelector('input[name="slTone"]:checked');
+        const nextTone = (toneEl && toneEl.value) || 'sage';
+        if (!ruBadge || !ruTitle || !ruText || !ruCta) return;
+
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = I18n.t('admin_translating');
+        }
+
+        const triOr = async (ru, prev) => {
+          const same = prev && prev.ru === ru && (prev.en || prev.uz);
+          if (same) return { ru, en: prev.en || ru, uz: prev.uz || ru };
+          if (typeof Translate !== 'undefined') {
+            try {
+              return await Translate.fromRu(ru);
+            } catch (_) {}
+          }
+          return { ru, en: ru, uz: ru };
+        };
+
+        try {
+          const badge = await triOr(ruBadge, p && p.badge);
+          const title = await triOr(ruTitle, p && p.title);
+          const text = await triOr(ruText, p && p.text);
+          const cta = await triOr(ruCta, p && p.cta);
+          const latest = await Api.getSettings();
+          const list = Array.isArray(latest.promos) ? latest.promos.slice() : [];
+          const slide = {
+            id: (p && p.id) || 'promo-' + Date.now().toString(36),
+            tone: nextTone,
+            badge,
+            title,
+            text,
+            cta,
+            href,
+          };
+          if (p && index != null) list[index] = slide;
+          else list.push(slide);
+          latest.promos = list;
+          settings = await Api.saveSettings(latest);
+          if (Api.invalidateCache) Api.invalidateCache(['settings']);
+          UI.toast(I18n.t('admin_saved'));
+          listView();
+        } catch (err) {
+          UI.toast(err && err.message ? err.message : 'Error');
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = I18n.t('admin_save');
+          }
+        }
+      });
+    }
+
+    listView();
+  }
+
   async function renderSettings() {
     settings = await Api.getSettings();
     const s = settings;

@@ -4,7 +4,30 @@
 const PromoSlider = (() => {
   const INTERVAL = 5600;
 
-  function init(root, slides) {
+  function applyBg(root, cfg) {
+    const vp = root.querySelector('.promo-viewport');
+    if (!vp) return;
+    const bg = Object.assign(
+      { bgMode: 'preset', preset: 'aurora', imageUrl: '', overlay: 0.35 },
+      cfg || {}
+    );
+    vp.classList.remove('has-image-bg');
+    vp.removeAttribute('data-bg');
+    vp.style.removeProperty('--promo-bg-image');
+    vp.style.removeProperty('--promo-overlay');
+
+    if (bg.bgMode === 'image' && bg.imageUrl) {
+      vp.classList.add('has-image-bg');
+      const url = String(bg.imageUrl).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      vp.style.setProperty('--promo-bg-image', `url("${url}")`);
+      const ov = Number(bg.overlay);
+      vp.style.setProperty('--promo-overlay', String(Number.isFinite(ov) ? Math.min(0.7, Math.max(0, ov)) : 0.35));
+    } else {
+      vp.setAttribute('data-bg', bg.preset || 'aurora');
+    }
+  }
+
+  function init(root, slides, bgCfg) {
     if (!root || !slides || !slides.length) return null;
 
     const track = root.querySelector('#promoTrack') || root.querySelector('.promo-track');
@@ -15,6 +38,8 @@ const PromoSlider = (() => {
     if (!track || !dotsBox) return null;
 
     root.hidden = false;
+    applyBg(root, bgCfg);
+
     let index = 0;
     let timer = null;
     let paused = false;
@@ -162,7 +187,7 @@ const PromoSlider = (() => {
     });
 
     start();
-    return { go, next, prev, destroy: stop };
+    return { go, next, prev, destroy: stop, applyBg: (c) => applyBg(root, c) };
   }
 
   function escape(str) {
@@ -176,5 +201,5 @@ const PromoSlider = (() => {
     return escape(str).replace(/'/g, '&#39;');
   }
 
-  return { init };
+  return { init, applyBg };
 })();

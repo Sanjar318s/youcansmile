@@ -89,7 +89,7 @@
   /* promo / news slider */
   const promoRoot = document.getElementById('promoSlider');
   if (promoRoot && Array.isArray(s.promos) && s.promos.length && typeof PromoSlider !== 'undefined') {
-    PromoSlider.init(promoRoot, s.promos);
+    PromoSlider.init(promoRoot, s.promos, s.promoSlider);
   } else {
     document.getElementById('promos')?.setAttribute('hidden', '');
   }
