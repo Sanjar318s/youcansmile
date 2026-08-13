@@ -23,7 +23,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link rel="stylesheet" href="css/styles.css?v=20260813i"/>
+  <link rel="stylesheet" href="css/styles.css?v=20260813j"/>
 </head>
 <body>
   <div id="header-root"></div>
@@ -66,6 +66,13 @@
           <button type="button" class="btn btn-secondary" id="logoutBtn" data-i18n="account_logout">Выйти</button>
         </div>
 
+        <section class="account-orders-section" id="orders">
+          <h2 data-i18n="account_orders">История заказов</h2>
+          <p class="account-orders-hint muted" data-i18n="account_orders_hint">Все заказы со статусом — в том числе отменённые. Можно открыть подробности или написать продавцу.</p>
+          <div id="ordersList" class="account-orders"></div>
+          <p class="catalog-empty hidden" id="ordersEmpty" data-i18n="account_orders_empty">Заказов пока нет.</p>
+        </section>
+
         <h2 data-i18n="account_profile_title">Профиль</h2>
         <p class="account-profile-hint muted" data-i18n="account_profile_hint">Ник, соцсети и адрес сохраняются и подставляются при заказе.</p>
         <form id="profileForm" class="account-form card account-profile-form">
@@ -91,23 +98,19 @@
           </label>
           <button class="btn btn-primary" type="submit" data-i18n="account_profile_save">Сохранить профиль</button>
         </form>
-
-        <h2 data-i18n="account_orders">Мои заказы</h2>
-        <div id="ordersList" class="account-orders"></div>
-        <p class="catalog-empty hidden" id="ordersEmpty" data-i18n="account_orders_empty">Заказов пока нет.</p>
       </div>
     </div>
   </section>
 
   <div id="footer-root"></div>
 
-  <script src="js/i18n.js?v=20260813h" defer></script>
-  <script src="js/api.js?v=20260813h" defer></script>
-  <script src="js/theme-apply.js?v=20260813h" defer></script>
-  <script src="js/store.js?v=20260813h" defer></script>
-  <script src="js/ui.js?v=20260813h" defer></script>
-  <script src="js/push-client.js?v=20260813h" defer></script>
-  <script src="js/chat.js?v=20260813h" defer></script>
-  <script src="js/account.js?v=20260813h" defer></script>
+  <script src="js/i18n.js?v=20260813j" defer></script>
+  <script src="js/api.js?v=20260813j" defer></script>
+  <script src="js/theme-apply.js?v=20260813j" defer></script>
+  <script src="js/store.js?v=20260813j" defer></script>
+  <script src="js/ui.js?v=20260813j" defer></script>
+  <script src="js/push-client.js?v=20260813j" defer></script>
+  <script src="js/chat.js?v=20260813j" defer></script>
+  <script src="js/account.js?v=20260813j" defer></script>
 </body>
 </html>

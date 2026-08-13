@@ -169,7 +169,7 @@ const UI = (() => {
               ${iconMarkup('fav', favSvg)}
               <span class="badge fav-badge hidden">0</span>
             </a>
-            <a class="icon-btn account-btn" href="account.html" aria-label="${I18n.t('nav_account')}" title="${I18n.t('nav_account')}">
+            <a class="icon-btn account-btn" href="account.html#orders" aria-label="${I18n.t('nav_account')}" title="${I18n.t('account_orders')}">
               ${profileSvg}
             </a>
             <a class="icon-btn cart-btn" href="cart.html" aria-label="cart" title="${I18n.t('nav_cart')}">

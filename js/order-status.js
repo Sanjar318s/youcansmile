@@ -61,6 +61,11 @@
     ? `<div class="os-reviews"><p>${I18n.t('review_form_title')}</p><div class="order-links">${reviewable}</div></div>`
     : '';
 
+  const itemsFull =
+    order.type === 'custom'
+      ? I18n.t('custom_title')
+      : (order.items || []).map((i) => `${i.title || i.productId} × ${i.qty || 1}`).join(', ') || typeLabel;
+
   card.innerHTML = `
     <p class="os-kicker">${I18n.t('order_status_title')}</p>
     <h1>${UI.escapeHtml(Store.orderNumberLabel(order))}</h1>
@@ -68,12 +73,23 @@
       <span class="order-status ${status}">${statusLabel(status)}</span>
     </div>
     <div class="os-meta">
-      <div><b>${I18n.t('admin_order_items')}:</b> ${UI.escapeHtml(typeLabel)}</div>
+      <div><b>${I18n.t('admin_order_items')}:</b> ${UI.escapeHtml(itemsFull)}</div>
       ${created ? `<div><b>${I18n.t('order_status_created')}:</b> ${UI.escapeHtml(created.toLocaleString('ru-RU', { timeZone: 'Asia/Tashkent' }))}</div>` : ''}
       ${order.total != null ? `<div><b>${I18n.t('cart_total')}:</b> ${Store.formatPrice(order.total, await Api.getSettings())}</div>` : ''}
     </div>
     <p class="os-hint">${I18n.t('order_status_hint')}</p>
     ${reviewLinks}
-    <a class="btn btn-secondary" href="index.html">${I18n.t('order_status_home')}</a>
+    <div class="os-actions">
+      <button type="button" class="btn btn-primary" id="osHelpBtn">${I18n.t('account_order_help')}</button>
+      <a class="btn btn-secondary" href="account.html#orders">${I18n.t('account_orders')}</a>
+      <a class="btn btn-secondary" href="index.html">${I18n.t('order_status_home')}</a>
+    </div>
   `;
+
+  if (typeof Chat !== 'undefined') Chat.init();
+  document.getElementById('osHelpBtn')?.addEventListener('click', async () => {
+    if (typeof Chat === 'undefined' || !Chat.open) return;
+    const msg = I18n.t('account_order_help_msg').replace('{order}', Store.orderNumberLabel(order));
+    await Chat.open({ message: msg, send: true });
+  });
 })();

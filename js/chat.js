@@ -970,5 +970,29 @@ const Chat = (() => {
     showLoginHint();
   }
 
-  return { init, onLogin, onLogout };
+  /** Open chat panel; optional draft/send text (e.g. order help). */
+  async function open(opts = {}) {
+    if (!root) buildUI();
+    if (!panel) return;
+    panel.classList.remove('hidden');
+    await ensureSession();
+    if (!me) {
+      showLoginHint();
+      return;
+    }
+    await refresh(true);
+    hideQuickIfNeeded();
+    startPoll();
+    const msg = opts.message != null ? String(opts.message).trim() : '';
+    if (!msg) return;
+    if (opts.send) {
+      await sendText(msg);
+    } else if (inputEl) {
+      inputEl.value = msg;
+      syncActionBtn();
+      inputEl.focus();
+    }
+  }
+
+  return { init, onLogin, onLogout, open };
 })();

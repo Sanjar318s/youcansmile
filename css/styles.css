@@ -2342,6 +2342,7 @@ html[data-theme='purple'] .order-status.in_progress { color: #5eead4; border-col
 }
 .os-hint { color: var(--text-3); font-size: 0.88rem; margin-bottom: 18px; }
 .os-empty, .os-loading { color: var(--text-3); }
+.os-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 
 .order-card .oc-details {
   margin-top: 14px;
@@ -2783,10 +2784,37 @@ html[data-theme='purple'] .settings-panel .cur-btn.active {
 @media (max-width: 560px) {
   .account-profile-form { grid-template-columns: 1fr; }
 }
+.account-orders-section { margin: 8px 0 28px; scroll-margin-top: calc(var(--header-h) + 12px); }
+.account-orders-hint { margin: -4px 0 14px; font-size: 0.9rem; line-height: 1.45; }
 .account-orders { display: flex; flex-direction: column; gap: 12px; }
-.account-order { padding: 16px 18px; }
-.account-order-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
-.account-order-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.account-order {
+  padding: 16px 18px;
+  background: var(--bg-card-solid, #fff);
+  transform: none !important;
+}
+.account-order:hover { transform: none !important; box-shadow: var(--shadow-sm, 0 8px 24px rgba(0,0,0,0.08)); }
+.account-order-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.account-order-num { font-size: 1.02rem; color: var(--text); }
+.account-order-date,
+.account-order-items,
+.account-order-total { margin: 4px 0; color: var(--text-2); line-height: 1.4; }
+.account-order-items { color: var(--text); }
+.account-order-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+html[data-theme='purple'] .account-order {
+  background: #141022;
+  border-color: rgba(167, 139, 250, 0.28);
+  color: #f3e8ff;
+}
+html[data-theme='purple'] .account-order-num { color: #faf5ff; }
+html[data-theme='purple'] .account-order-date,
+html[data-theme='purple'] .account-order-total { color: #c4b5fd; }
+html[data-theme='purple'] .account-order-items { color: #e9d5ff; }
+html[data-theme='purple'] .account-head,
+html[data-theme='purple'] .account-profile-form {
+  background: #141022;
+  border-color: rgba(167, 139, 250, 0.28);
+  color: #f3e8ff;
+}
 
 /* ---- Chat widget ---- */
 .chat-widget {
