@@ -139,5 +139,9 @@
     });
   }
 
+  document.addEventListener('ycs:i18n-ready', () => {
+    applyFilters();
+  });
+
   await applyFilters();
 })();

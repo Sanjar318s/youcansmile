@@ -280,10 +280,12 @@ const TRANSLATIONS = {
     admin_featured: 'Рекомендуемый',
     admin_images: 'Фото (можно несколько)',
     admin_add_image: 'Добавить фото',
-    admin_title_ru: 'Название (RU)',
+    admin_title_ru: 'Название',
     admin_title_en: 'Название (EN)',
-    admin_desc_ru: 'Описание (RU)',
+    admin_desc_ru: 'Описание',
     admin_desc_en: 'Описание (EN)',
+    admin_auto_translate_hint: 'Пишите по-русски — для EN и UZ сайт переведёт сам.',
+    admin_translating: 'Переводим…',
     admin_tags: 'Теги (через запятую)',
     admin_save: 'Сохранить',
     admin_cancel: 'Отмена',
@@ -748,10 +750,12 @@ const TRANSLATIONS = {
     admin_featured: 'Featured',
     admin_images: 'Photos (multiple allowed)',
     admin_add_image: 'Add photo',
-    admin_title_ru: 'Title (RU)',
+    admin_title_ru: 'Title',
     admin_title_en: 'Title (EN)',
-    admin_desc_ru: 'Description (RU)',
+    admin_desc_ru: 'Description',
     admin_desc_en: 'Description (EN)',
+    admin_auto_translate_hint: 'Write in Russian — EN and UZ are translated automatically.',
+    admin_translating: 'Translating…',
     admin_tags: 'Tags (comma separated)',
     admin_save: 'Save',
     admin_cancel: 'Cancel',
@@ -1170,6 +1174,92 @@ TRANSLATIONS.uz = Object.assign({}, TRANSLATIONS.ru, {
   chat_q5: 'Tayyorlash qancha vaqt oladi?',
 });
 
+/* Auto-translate RU → EN / UZ (admin writes Russian only). */
+const Translate = (() => {
+  const cache = Object.create(null);
+
+  function cacheKey(text, to) {
+    return `${to}::${text}`;
+  }
+
+  function readLs(key) {
+    try {
+      return localStorage.getItem('ycs_tr:' + key) || '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function writeLs(key, val) {
+    try {
+      localStorage.setItem('ycs_tr:' + key, val);
+    } catch (_) {}
+  }
+
+  async function mymemory(text, to) {
+    const q = String(text || '').trim();
+    if (!q) return '';
+    if (to === 'ru') return q;
+    const key = cacheKey(q, to);
+    if (cache[key]) return cache[key];
+    const ls = readLs(key);
+    if (ls) {
+      cache[key] = ls;
+      return ls;
+    }
+    const url =
+      'https://api.mymemory.translated.net/get?q=' +
+      encodeURIComponent(q.slice(0, 450)) +
+      '&langpair=ru|' +
+      encodeURIComponent(to);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('translate_http');
+    const data = await res.json();
+    let out = (data && data.responseData && data.responseData.translatedText) || '';
+    out = String(out).trim();
+    if (!out || /MYMEMORY WARNING|INVALID SOURCE/i.test(out)) {
+      throw new Error('translate_bad');
+    }
+    cache[key] = out;
+    writeLs(key, out);
+    return out;
+  }
+
+  async function one(text, to) {
+    const q = String(text || '').trim();
+    if (!q) return '';
+    try {
+      return await mymemory(q, to);
+    } catch (_) {
+      return q;
+    }
+  }
+
+  async function text(text, to) {
+    const raw = String(text || '');
+    if (!raw.trim() || to === 'ru') return raw.trim();
+    const lines = raw.split(/\n/);
+    const out = [];
+    for (const line of lines) {
+      if (!line.trim()) {
+        out.push('');
+        continue;
+      }
+      out.push(await one(line.trim(), to));
+    }
+    return out.join('\n');
+  }
+
+  async function fromRu(ruText) {
+    const ru = String(ruText || '').trim();
+    if (!ru) return { ru: '', en: '', uz: '' };
+    const [en, uz] = await Promise.all([text(ru, 'en'), text(ru, 'uz')]);
+    return { ru, en, uz };
+  }
+
+  return { one, text, fromRu };
+})();
+
 const I18n = {
   _lang: ['ru', 'uz', 'en'].includes(localStorage.getItem('ycs_lang')) ? localStorage.getItem('ycs_lang') : 'ru',
 
@@ -1197,7 +1287,35 @@ const I18n = {
   txt(obj) {
     if (!obj) return '';
     if (typeof obj === 'string') return obj;
-    return obj[this._lang] || obj.ru || obj.en || obj.uz || '';
+    const lang = this._lang;
+    const direct = obj[lang];
+    if (direct) return direct;
+    const ru = obj.ru || obj.en || obj.uz || '';
+    if (!ru || lang === 'ru') return ru;
+    // Runtime auto-translate when EN/UZ missing (old products / admin RU-only)
+    if (typeof Translate !== 'undefined' && Translate.one) {
+      const key = lang + '::' + ru;
+      try {
+        const ls = localStorage.getItem('ycs_tr:' + key);
+        if (ls) return ls;
+      } catch (_) {}
+      if (!this._pendingTr) this._pendingTr = Object.create(null);
+      if (!this._pendingTr[key]) {
+        this._pendingTr[key] = true;
+        Translate.text(ru, lang)
+          .then((out) => {
+            if (!out || out === ru) return;
+            try {
+              localStorage.setItem('ycs_tr:' + key, out);
+            } catch (_) {}
+            document.dispatchEvent(new CustomEvent('ycs:i18n-ready', { detail: { lang, text: out } }));
+          })
+          .finally(() => {
+            delete this._pendingTr[key];
+          });
+      }
+    }
+    return ru;
   },
 };
 

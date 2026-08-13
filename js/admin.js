@@ -351,25 +351,14 @@
         <h2>${p ? I18n.t('admin_edit_product') : I18n.t('admin_add_product')}</h2>
       </div>
       <form class="adm-form" id="prodForm">
-        <div class="field">
+        <div class="field full">
           <label>${I18n.t('admin_title_ru')}</label>
           <input id="fTitleRu" value="${UI.escapeHtml(loc(p && p.title, 'ru'))}" required/>
-        </div>
-        <div class="field">
-          <label>${I18n.t('admin_title_en')}</label>
-          <input id="fTitleEn" value="${UI.escapeHtml(loc(p && p.title, 'en'))}" required/>
-        </div>
-        <div class="field">
-          <label>Title (UZ)</label>
-          <input id="fTitleUz" value="${UI.escapeHtml(loc(p && p.title, 'uz'))}"/>
+          <small class="field-hint">${I18n.t('admin_auto_translate_hint')}</small>
         </div>
         <div class="field full">
           <label>${I18n.t('admin_desc_ru')}</label>
           <textarea id="fDescRu">${UI.escapeHtml(loc(p && p.desc, 'ru'))}</textarea>
-        </div>
-        <div class="field full">
-          <label>${I18n.t('admin_desc_en')}</label>
-          <textarea id="fDescEn">${UI.escapeHtml(loc(p && p.desc, 'en'))}</textarea>
         </div>
         <div class="field">
           <label>${I18n.t('admin_base_price')}</label>
@@ -513,16 +502,46 @@
           UI.toast(I18n.t('admin_base_price'));
           return;
         }
+        const ruTitle = document.getElementById('fTitleRu').value.trim();
+        const ruDesc = document.getElementById('fDescRu').value.trim();
+        if (!ruTitle) return;
+
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = I18n.t('admin_translating');
+        }
+
+        let title = { ru: ruTitle, en: ruTitle, uz: ruTitle };
+        let desc = { ru: ruDesc, en: ruDesc, uz: ruDesc };
+        try {
+          const sameTitle = p && loc(p.title, 'ru') === ruTitle && (p.title.en || p.title.uz);
+          const sameDesc = p && loc(p.desc, 'ru') === ruDesc && (p.desc && (p.desc.en || p.desc.uz));
+          if (sameTitle) {
+            title = {
+              ru: ruTitle,
+              en: p.title.en || ruTitle,
+              uz: p.title.uz || ruTitle,
+            };
+          } else if (typeof Translate !== 'undefined') {
+            title = await Translate.fromRu(ruTitle);
+          }
+          if (sameDesc) {
+            desc = {
+              ru: ruDesc,
+              en: (p.desc && p.desc.en) || ruDesc,
+              uz: (p.desc && p.desc.uz) || ruDesc,
+            };
+          } else if (typeof Translate !== 'undefined') {
+            desc = await Translate.fromRu(ruDesc);
+          }
+        } catch (_) {
+          /* keep ru fallbacks */
+        }
+
         const data = {
-          title: {
-            ru: document.getElementById('fTitleRu').value.trim(),
-            uz: document.getElementById('fTitleUz').value.trim(),
-            en: document.getElementById('fTitleEn').value.trim(),
-          },
-          desc: {
-            ru: document.getElementById('fDescRu').value.trim(),
-            en: document.getElementById('fDescEn').value.trim(),
-          },
+          title,
+          desc,
           price: final,
           oldPrice: pct > 0 ? base : null,
           categoryId: document.getElementById('fCat').value,
@@ -538,6 +557,10 @@
           renderProducts();
         } catch (err) {
           UI.toast(err && err.message ? err.message : 'Error');
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = I18n.t('admin_save');
+          }
         }
       });
     } catch (err) {
