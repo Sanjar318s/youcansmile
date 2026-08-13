@@ -2967,20 +2967,34 @@ html[data-theme='purple'] .cur-btn.active {
 
 /* ---- category chips (featured section) ---- */
 .category-filters {
-  display: flex; gap: 10px; flex-wrap: wrap;
+  display: flex; gap: 8px; flex-wrap: wrap;
   justify-content: center; margin: 0 0 28px;
+  align-items: center;
 }
 .category-chip {
   border: 1.5px solid #c9b88a; background: #fff8ef; color: #5c6f4a;
-  border-radius: 999px; padding: 10px 22px; font-weight: 800;
-  letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.82rem;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  line-height: 1;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  height: 28px;
+  box-sizing: border-box;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
-.category-chip:hover { border-color: #7d936a; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(92,111,74,0.16); }
+.category-chip:hover { border-color: #7d936a; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(92,111,74,0.14); }
 .category-chip.active {
   background: #7d936a; color: #fff8ef; border-color: #7d936a;
-  box-shadow: 0 8px 20px rgba(125,147,106,0.35);
+  box-shadow: none;
 }
 
 /* ---- checkout choices + map ---- */
@@ -4155,15 +4169,38 @@ body.chat-recording {
 .category-filters {
   display: flex;
   flex-wrap: nowrap;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   justify-content: flex-start;
-  padding: 6px 2px;
+  padding: 2px 0;
+  margin: 0 0 22px;
 }
 .category-filters::-webkit-scrollbar { display: none; }
+.category-filters-row {
+  align-items: center;
+  margin: 0 0 18px;
+  gap: 4px;
+}
+.category-filters-row .h-scroll-nav {
+  width: 28px;
+  height: 28px;
+  font-size: 1rem;
+}
+.category-filters-row .category-filters {
+  margin-bottom: 0;
+  padding: 0;
+  gap: 6px;
+}
+.category-filters-row .category-chip {
+  min-height: 28px;
+  height: 28px;
+  padding: 0 11px;
+  font-size: 0.68rem;
+}
 .table-scroll {
   scrollbar-width: none;
 }
