@@ -850,10 +850,10 @@ html[data-theme='purple'] .btn-secondary:hover {
   box-shadow: 0 8px 24px rgba(168,85,247,0.28), 0 0 20px rgba(168,85,247,0.35);
 }
 html[data-theme='purple'] .btn-primary {
-  box-shadow: 0 8px 26px rgba(168,85,247,0.35);
+  box-shadow: 0 8px 22px rgba(168,85,247,0.32);
 }
 html[data-theme='purple'] .btn-primary:hover {
-  box-shadow: 0 12px 32px rgba(168,85,247,0.5), 0 0 28px rgba(168,85,247,0.45);
+  box-shadow: 0 10px 26px rgba(168,85,247,0.4);
 }
 html[data-theme='purple'] .filters .btn-ghost,
 html[data-theme='purple'] .filters .btn-secondary {
@@ -864,7 +864,7 @@ html[data-theme='purple'] .filters .btn-secondary {
 html[data-theme='purple'] .filters .btn-ghost:hover,
 html[data-theme='purple'] .filters .btn-secondary:hover {
   background: rgba(168,85,247,0.22);
-  box-shadow: 0 0 22px rgba(168,85,247,0.35);
+  box-shadow: 0 6px 16px rgba(168,85,247,0.28);
   border-color: #c084fc;
 }
 html[data-theme='purple'] .chip:hover {
