@@ -80,6 +80,9 @@
     logoutBtn.classList.remove('hidden');
     topTitle.textContent = I18n.t('admin_title');
     navBtns.forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+    if (typeof UI !== 'undefined' && UI.bindHScroll) {
+      UI.bindHScroll(document.getElementById('adminNavWrap'), '#adminNav');
+    }
     switchTab('dash');
   }
 

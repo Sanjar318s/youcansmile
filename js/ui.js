@@ -546,6 +546,57 @@ const UI = (() => {
     return last.startsWith('@') ? last : '@' + last;
   }
 
+  /** Arrow buttons instead of native scrollbar for horizontal chip/nav rows. */
+  function bindHScroll(wrap, trackSel) {
+    if (!wrap) return;
+    const track =
+      (trackSel && wrap.querySelector(trackSel)) ||
+      wrap.querySelector('.h-scroll-track') ||
+      wrap.querySelector('.chips') ||
+      wrap;
+    const prev = wrap.querySelector('.h-scroll-nav.prev, .prev');
+    const next = wrap.querySelector('.h-scroll-nav.next, .next');
+    if (!track || !prev || !next) return;
+
+    const sync = () => {
+      const max = Math.max(0, track.scrollWidth - track.clientWidth);
+      const noScroll = max <= 4;
+      prev.disabled = noScroll || track.scrollLeft <= 2;
+      next.disabled = noScroll || track.scrollLeft >= max - 2;
+      prev.style.display = '';
+      next.style.display = '';
+      if (noScroll) {
+        prev.disabled = true;
+        next.disabled = true;
+      }
+    };
+
+    const page = (dir) => {
+      const amount = Math.max(140, Math.floor(track.clientWidth * 0.75));
+      track.scrollBy({ left: dir * amount, behavior: 'smooth' });
+    };
+
+    prev.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      page(-1);
+    };
+    next.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      page(1);
+    };
+    track.addEventListener('scroll', sync, { passive: true });
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(sync);
+      ro.observe(track);
+    } else {
+      window.addEventListener('resize', sync);
+    }
+    requestAnimationFrame(sync);
+    setTimeout(sync, 50);
+  }
+
   return {
     renderHeader,
     renderFooter,
@@ -555,6 +606,7 @@ const UI = (() => {
     toast,
     syncCounts,
     escapeHtml,
+    bindHScroll,
     pickContact,
     normalizeContactHref,
     contactLabel,

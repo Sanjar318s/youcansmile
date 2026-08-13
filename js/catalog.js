@@ -47,6 +47,9 @@
     document.querySelectorAll('#catChips .chip').forEach((c) => c.classList.toggle('active', c === chip));
     applyFilters();
   });
+  if (typeof UI !== 'undefined' && UI.bindHScroll) {
+    UI.bindHScroll(document.getElementById('catChipsRow'));
+  }
 
   /* элементы фильтров */
   const priceFrom = document.getElementById('priceFrom');

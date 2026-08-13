@@ -24,7 +24,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link rel="stylesheet" href="css/styles.css?v=20260813u"/>
+  <link rel="stylesheet" href="css/styles.css?v=20260813w"/>
 </head>
 <body>
 
@@ -52,7 +52,11 @@
           <div class="filters-body" id="filtersBody">
           <h3 data-i18n="filter_category_id">Категория</h3>
           <div class="filter-group">
-            <div class="chips" id="catChips"></div>
+            <div class="h-scroll-row" id="catChipsRow">
+              <button type="button" class="h-scroll-nav prev" aria-label="Назад">‹</button>
+              <div class="chips h-scroll-track" id="catChips"></div>
+              <button type="button" class="h-scroll-nav next" aria-label="Вперёд">›</button>
+            </div>
           </div>
 
           <div class="filter-group">
@@ -105,9 +109,9 @@
   <script src="js/api.js?v=20260813s" defer></script>
   <script src="js/theme-apply.js?v=20260813s" defer></script>
   <script src="js/store.js?v=20260813s" defer></script>
-  <script src="js/ui.js?v=20260813u" defer></script>
+  <script src="js/ui.js?v=20260813w" defer></script>
   <script src="js/push-client.js?v=20260813s" defer></script>
   <script src="js/chat-lazy.js?v=20260813u" defer></script>
-  <script src="js/catalog.js?v=20260813u" defer></script>
+  <script src="js/catalog.js?v=20260813w" defer></script>
 </body>
 </html>

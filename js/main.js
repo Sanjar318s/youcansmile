@@ -101,6 +101,15 @@
   let categoryFilter = 'all';
 
   if (categoryFilters) {
+    const parent = categoryFilters.parentElement;
+    const wrap = document.createElement('div');
+    wrap.className = 'h-scroll-row category-filters-row';
+    wrap.innerHTML = `
+      <button type="button" class="h-scroll-nav prev" aria-label="Назад">‹</button>
+      <div class="category-filters h-scroll-track" id="categoryFiltersInner" role="tablist"></div>
+      <button type="button" class="h-scroll-nav next" aria-label="Вперёд">›</button>`;
+    parent.replaceChild(wrap, categoryFilters);
+    const track = wrap.querySelector('#categoryFiltersInner');
     const chips = [
       `<button type="button" class="category-chip active" data-cat="all">${I18n.t('sage_filter_all')}</button>`,
       ...cats.map(
@@ -108,7 +117,8 @@
           `<button type="button" class="category-chip" data-cat="${UI.escapeHtml(c.id)}">${UI.escapeHtml(I18n.txt(c.name))}</button>`
       ),
     ];
-    categoryFilters.innerHTML = chips.join('');
+    track.innerHTML = chips.join('');
+    if (UI.bindHScroll) UI.bindHScroll(wrap);
   }
 
   async function renderFeatured() {
@@ -131,10 +141,11 @@
 
   await renderFeatured();
 
-  categoryFilters?.querySelectorAll('.category-chip').forEach((btn) => {
+  const categoryTrack = document.getElementById('categoryFiltersInner') || document.getElementById('categoryFilters');
+  categoryTrack?.querySelectorAll('.category-chip').forEach((btn) => {
     btn.addEventListener('click', async () => {
       categoryFilter = btn.dataset.cat || 'all';
-      categoryFilters.querySelectorAll('.category-chip').forEach((b) => b.classList.toggle('active', b === btn));
+      categoryTrack.querySelectorAll('.category-chip').forEach((b) => b.classList.toggle('active', b === btn));
       await renderFeatured();
     });
   });
