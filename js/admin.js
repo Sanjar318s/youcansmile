@@ -757,40 +757,23 @@
 
   function notifyClient(order, status) {
     const msg = buildStatusNotifyMessage(order, status);
-    const links = buildNotifyLinks(order, msg);
-    if (links.tg) window.open(links.tg, '_blank', 'noopener');
-    setTimeout(() => {
-      if (links.wa) window.open(links.wa, '_blank', 'noopener');
-    }, 250);
-    return links;
+    return buildNotifyLinks(order, msg);
   }
 
-  async function renderOrders() {
-    const orders = await Api.getOrders();
-    if (!orders.length) {
-      content.innerHTML = `<h2 style="font-size:1.4rem; margin-bottom:22px;">📋 ${I18n.t('admin_orders')}</h2><p style="color:var(--ink-soft);">${I18n.t('admin_empty')}</p>`;
-      return;
-    }
-
-    const sorted = orders.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-    content.innerHTML = `
-      <h2 style="font-size:1.4rem; margin-bottom:22px;">📋 ${I18n.t('admin_orders')}</h2>
-      ${sorted
-        .map((o) => {
-          const note = orderNote(o);
-          const who = orderWho(o);
-          const type = orderTypeLabel(o);
-          const status = normalizeStatus(o.status);
-          const created = o.createdAt ? new Date(o.createdAt) : null;
-          const dateStr = created
-            ? created.toLocaleDateString('ru-RU', { timeZone: 'Asia/Tashkent' })
-            : '';
-          const timeStr = created
-            ? created.toLocaleTimeString('ru-RU', { timeZone: 'Asia/Tashkent' })
-            : '';
-          return `
-        <div class="order-card" data-order-id="${UI.escapeHtml(o.id)}">
+  function orderCardHTML(o) {
+    const note = orderNote(o);
+    const who = orderWho(o);
+    const type = orderTypeLabel(o);
+    const status = normalizeStatus(o.status);
+    const created = o.createdAt ? new Date(o.createdAt) : null;
+    const dateStr = created
+      ? created.toLocaleDateString('ru-RU', { timeZone: 'Asia/Tashkent' })
+      : '';
+    const timeStr = created
+      ? created.toLocaleTimeString('ru-RU', { timeZone: 'Asia/Tashkent' })
+      : '';
+    return `
+        <div class="order-card" data-order-id="${UI.escapeHtml(o.id)}" data-status="${status}">
           <div class="oc-head">
             <div class="oc-title">
               <span class="oc-id">${UI.escapeHtml(Store.orderNumberLabel(o))}</span>
@@ -799,6 +782,7 @@
               <span class="oc-sep">·</span>
               <span class="oc-badge ${o.type === 'custom' ? 'custom' : 'cart'}">${UI.escapeHtml(type)}</span>
             </div>
+            <button type="button" class="btn btn-sm btn-danger js-order-delete" data-order="${UI.escapeHtml(o.id)}" title="${I18n.t('admin_order_delete')}">${I18n.t('admin_order_delete')}</button>
           </div>
           <div class="oc-meta">
             ${o.customer?.phone ? `<span>📞 ${UI.escapeHtml(o.customer.phone)}</span>` : ''}
@@ -822,10 +806,10 @@
           <div class="oc-notify hidden" data-notify="${UI.escapeHtml(o.id)}"></div>
           ${orderDetailsHTML(o)}
         </div>`;
-        })
-        .join('')}`;
+  }
 
-    content.querySelectorAll('.js-status-update').forEach((btn) => {
+  function bindOrderCardEvents(root) {
+    root.querySelectorAll('.js-status-update').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.order;
         const card = btn.closest('.order-card');
@@ -839,26 +823,16 @@
             UI.toast(I18n.t('order_status_update_fail'));
             return;
           }
-          const links = notifyClient(updated, status);
-          const box = card.querySelector(`[data-notify="${id}"]`);
-          if (box) {
-            box.classList.remove('hidden');
-            const chatNote = updated.chatNotified
-              ? `<span>${I18n.t('admin_order_notified')} чат ✓${updated.pushNotified ? ' · push ✓' : ''}</span>`
-              : `<span>${I18n.t('admin_order_notified')}</span>`;
-            box.innerHTML = `
-              ${chatNote}
-              ${links.tg ? `<a class="btn btn-sm btn-secondary" target="_blank" rel="noopener" href="${links.tg}">Telegram</a>` : ''}
-              ${links.wa ? `<a class="btn btn-sm btn-secondary" target="_blank" rel="noopener" href="${links.wa}">WhatsApp</a>` : ''}
-              <button type="button" class="btn btn-sm btn-secondary js-copy-status" data-url="${UI.escapeHtml(links.url)}">${I18n.t('admin_order_copy_link')}</button>`;
-          }
-          const badge = card.querySelector('.order-status');
-          if (badge) {
-            badge.className = `order-status ${status}`;
-            badge.textContent = statusLabel(status);
-          }
-          sel.value = status;
-          UI.toast(I18n.t('order_status_updated'));
+          // In-app chat + push already sent by API — do NOT open Telegram
+          const flags = [];
+          if (updated.chatNotified) flags.push('чат ✓');
+          if (updated.pushNotified) flags.push('push ✓');
+          UI.toast(
+            flags.length
+              ? `${I18n.t('order_status_updated')} · ${flags.join(' · ')}`
+              : I18n.t('order_status_updated')
+          );
+          await renderOrders();
         } catch (err) {
           UI.toast(err.message || I18n.t('order_status_update_fail'));
         } finally {
@@ -867,7 +841,24 @@
       });
     });
 
-    content.querySelectorAll('.js-order-more').forEach((btn) => {
+    root.querySelectorAll('.js-order-delete').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.order;
+        if (!id) return;
+        if (!window.confirm(I18n.t('admin_order_delete_confirm'))) return;
+        btn.disabled = true;
+        try {
+          await Api.deleteOrder(id);
+          UI.toast(I18n.t('admin_order_deleted'));
+          await renderOrders();
+        } catch (err) {
+          UI.toast(err.message || I18n.t('admin_order_delete_fail'));
+          btn.disabled = false;
+        }
+      });
+    });
+
+    root.querySelectorAll('.js-order-more').forEach((btn) => {
       btn.addEventListener('click', () => {
         const card = btn.closest('.order-card');
         const panel = card?.querySelector('.oc-details');
@@ -880,6 +871,46 @@
         card.classList.toggle('is-open', open);
       });
     });
+  }
+
+  async function renderOrders() {
+    const orders = await Api.getOrders();
+    const sorted = (orders || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const byStatus = {};
+    ORDER_STATUSES.forEach((st) => {
+      byStatus[st] = [];
+    });
+    sorted.forEach((o) => {
+      const st = normalizeStatus(o.status);
+      byStatus[st].push(o);
+    });
+
+    const nav = ORDER_STATUSES.map((st) => {
+      const n = byStatus[st].length;
+      return `<a class="orders-status-pill ${st}" href="#orders-${st}"><span>${statusLabel(st)}</span><b>${n}</b></a>`;
+    }).join('');
+
+    const sections = ORDER_STATUSES.map((st) => {
+      const list = byStatus[st];
+      const body = list.length
+        ? list.map(orderCardHTML).join('')
+        : `<p class="orders-section-empty">${I18n.t('admin_empty')}</p>`;
+      return `
+        <section class="orders-section" id="orders-${st}" data-status="${st}">
+          <h3 class="orders-section-title">
+            <span class="order-status ${st}">${statusLabel(st)}</span>
+            <span class="orders-section-count">${list.length}</span>
+          </h3>
+          <div class="orders-section-list">${body}</div>
+        </section>`;
+    }).join('');
+
+    content.innerHTML = `
+      <h2 style="font-size:1.4rem; margin-bottom:16px;">📋 ${I18n.t('admin_orders')}</h2>
+      <div class="orders-status-nav">${nav}</div>
+      ${sorted.length ? sections : `<p style="color:var(--ink-soft);">${I18n.t('admin_empty')}</p>`}`;
+
+    bindOrderCardEvents(content);
   }
 
   const SITE_TEXT_GROUPS = [

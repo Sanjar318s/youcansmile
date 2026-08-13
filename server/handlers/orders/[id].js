@@ -1,5 +1,5 @@
 const { cors, json, readBody, baseUrl } = require(require('path').resolve(process.cwd(), 'lib/http'));
-const { getOrder, saveOrder } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const { getOrder, saveOrder, deleteOrder } = require(require('path').resolve(process.cwd(), 'lib/data'));
 const { getSessionUser } = require(require('path').resolve(process.cwd(), 'lib/auth'));
 const { uid } = require(require('path').resolve(process.cwd(), 'lib/db'));
 const {
@@ -21,6 +21,13 @@ module.exports = async (req, res) => {
       if (!order) return json(res, 404, { error: 'not_found' });
       return json(res, 200, order);
     }
+    if (req.method === 'DELETE') {
+      const me = await getSessionUser(req);
+      if (!me || me.role !== 'admin') return json(res, 401, { error: 'auth' });
+      if (!order) return json(res, 404, { error: 'not_found' });
+      await deleteOrder(id);
+      return json(res, 200, { ok: true, id });
+    }
     if (req.method === 'PATCH') {
       const me = await getSessionUser(req);
       if (!me || me.role !== 'admin') return json(res, 401, { error: 'auth' });
@@ -35,7 +42,6 @@ module.exports = async (req, res) => {
         }
         next.status = normalizeStatus(status);
       }
-      // Allow other safe admin fields later; ignore unknown mass-assign of id
       if (patch.note != null) next.adminNote = String(patch.note);
 
       next.updatedAt = Date.now();

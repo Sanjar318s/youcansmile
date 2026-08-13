@@ -314,6 +314,14 @@ const Api = {
     this._save(this.KEYS.orders, all);
     return all[idx];
   },
+  async deleteOrder(id) {
+    if (this.mode === 'remote') return this._remote('/api/orders/' + encodeURIComponent(id), 'DELETE');
+    const all = this._ls(this.KEYS.orders, []);
+    const next = all.filter((o) => o.id !== id);
+    if (next.length === all.length) throw new Error('not found');
+    this._save(this.KEYS.orders, next);
+    return { ok: true, id };
+  },
 
   /* --------------------------- отзывы ------------------------ */
   _normPhone(phone) {
