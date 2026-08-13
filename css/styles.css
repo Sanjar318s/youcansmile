@@ -1313,16 +1313,22 @@ html[data-theme='purple'] .card-title:hover { color: var(--lilac); }
 .footer-sage .footer-bottom { border-color: rgba(255,255,255,0.2); color: #e4ecd4; }
 .footer-sage .fs-col { min-width: 0; }
 
-/* Mobile footer — full width, balanced, no empty half-column */
+/* Mobile footer — everything centered */
 @media (max-width: 759px) {
   .footer-sage-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 22px 16px;
-    padding: 36px 0 22px;
-  }
-  .footer-sage-grid > .fs-col:first-child {
-    grid-column: 1 / -1;
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 40px 0 24px;
     text-align: center;
+    justify-items: center;
+  }
+  .footer-sage-grid > .fs-col {
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
   .footer-sage .fs-brand {
     justify-content: center;
@@ -1331,39 +1337,46 @@ html[data-theme='purple'] .card-title:hover { color: var(--lilac); }
   .footer-sage .logo {
     display: inline-block;
     font-size: clamp(1.55rem, 7vw, 1.9rem);
+    margin-left: auto;
+    margin-right: auto;
   }
   .footer-sage .fs-about {
-    max-width: none;
+    max-width: 100%;
     margin: 0 auto;
     font-size: 0.9rem;
+    text-align: center;
   }
   .footer-sage h4 {
     letter-spacing: 0.1em;
     font-size: 0.78rem;
     margin-bottom: 12px;
+    text-align: center;
+    width: 100%;
   }
   .footer-sage a {
     margin-bottom: 8px;
     font-size: 0.9rem;
   }
-  .fs-social { justify-content: flex-start; }
+  .footer-sage .fs-col a {
+    display: inline-block;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .fs-social {
+    justify-content: center;
+    width: 100%;
+  }
+  .fs-channel {
+    display: block !important;
+    text-align: center;
+  }
   .footer-sage .footer-bottom {
     flex-direction: column;
     align-items: center;
     text-align: center;
     gap: 6px;
-    padding: 16px 0 88px; /* room for chat FAB */
+    padding: 16px 0 88px;
   }
-}
-@media (max-width: 380px) {
-  .footer-sage-grid {
-    grid-template-columns: 1fr;
-    text-align: center;
-  }
-  .footer-sage-grid > .fs-col {
-    text-align: center;
-  }
-  .fs-social { justify-content: center; }
 }
 
 /* Purple footer — same 3-col layout, purple palette + glow */
