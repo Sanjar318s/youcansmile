@@ -171,11 +171,11 @@ const UI = (() => {
               </button>
             </div>
             <div class="header-group header-group-shop">
-              <a class="icon-btn fav-btn" href="favorites.html" aria-label="${I18n.t('nav_favorites')}" title="${I18n.t('nav_favorites')}">
+              <a class="icon-btn fav-btn header-bar-extra" href="favorites.html" aria-label="${I18n.t('nav_favorites')}" title="${I18n.t('nav_favorites')}">
                 ${iconMarkup('fav', favSvg)}
                 <span class="badge fav-badge hidden">0</span>
               </a>
-              <a class="icon-btn orders-btn" href="orders.html" aria-label="${I18n.t('account_orders')}" title="${I18n.t('account_orders')}">
+              <a class="icon-btn orders-btn header-bar-extra" href="orders.html" aria-label="${I18n.t('account_orders')}" title="${I18n.t('account_orders')}">
                 ${ordersSvg}
               </a>
               <a class="icon-btn cart-btn" href="cart.html" aria-label="${I18n.t('nav_cart')}" title="${I18n.t('nav_cart')}">
@@ -184,7 +184,7 @@ const UI = (() => {
               </a>
             </div>
             <div class="header-group header-group-user">
-              <a class="icon-btn account-btn" href="account.html" aria-label="${I18n.t('nav_account')}" title="${I18n.t('nav_account')}">
+              <a class="icon-btn account-btn header-bar-extra" href="account.html" aria-label="${I18n.t('nav_account')}" title="${I18n.t('nav_account')}">
                 ${profileSvg}
               </a>
               ${settingsPanel}

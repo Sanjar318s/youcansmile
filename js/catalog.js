@@ -127,5 +127,14 @@
     applyFilters();
   });
 
+  const filtersEl = document.getElementById('filters');
+  const filtersToggle = document.getElementById('filtersToggle');
+  if (filtersEl && filtersToggle) {
+    filtersToggle.addEventListener('click', () => {
+      const open = filtersEl.classList.toggle('is-open');
+      filtersToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+
   await applyFilters();
 })();

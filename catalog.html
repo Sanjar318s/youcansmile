@@ -24,7 +24,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link rel="stylesheet" href="css/styles.css?v=20260813t"/>
+  <link rel="stylesheet" href="css/styles.css?v=20260813u"/>
 </head>
 <body>
 
@@ -45,6 +45,11 @@
       <div class="catalog-layout">
         <!-- фильтры -->
         <aside class="filters" id="filters">
+          <button type="button" class="filters-toggle" id="filtersToggle" aria-expanded="false" aria-controls="filtersBody">
+            <span data-i18n="filter_filters">Фильтры</span>
+            <svg class="filters-toggle-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="filters-body" id="filtersBody">
           <h3 data-i18n="filter_category_id">Категория</h3>
           <div class="filter-group">
             <div class="chips" id="catChips"></div>
@@ -53,9 +58,9 @@
           <div class="filter-group">
             <label data-i18n="filter_price_id">Цена</label>
             <div class="price-inputs">
-              <input type="number" id="priceFrom" placeholder="от" min="0"/>
-              <span>—</span>
-              <input type="number" id="priceTo" placeholder="до" min="0"/>
+              <input type="number" id="priceFrom" placeholder="от" min="0" inputmode="numeric"/>
+              <span class="price-sep" aria-hidden="true">—</span>
+              <input type="number" id="priceTo" placeholder="до" min="0" inputmode="numeric"/>
             </div>
           </div>
 
@@ -71,6 +76,7 @@
           </div>
 
           <button class="btn btn-ghost btn-sm" id="resetFilters" data-i18n="filter_reset_id">Сбросить</button>
+          </div>
         </aside>
 
         <!-- товары -->
@@ -95,13 +101,13 @@
 
   <div id="footer-root"></div>
 
-  <script src="js/i18n.js?v=20260813t" defer></script>
+  <script src="js/i18n.js?v=20260813u" defer></script>
   <script src="js/api.js?v=20260813s" defer></script>
   <script src="js/theme-apply.js?v=20260813s" defer></script>
   <script src="js/store.js?v=20260813s" defer></script>
-  <script src="js/ui.js?v=20260813s" defer></script>
+  <script src="js/ui.js?v=20260813u" defer></script>
   <script src="js/push-client.js?v=20260813s" defer></script>
-  <script src="js/chat-lazy.js?v=20260813t" defer></script>
-  <script src="js/catalog.js?v=20260813s" defer></script>
+  <script src="js/chat-lazy.js?v=20260813u" defer></script>
+  <script src="js/catalog.js?v=20260813u" defer></script>
 </body>
 </html>
