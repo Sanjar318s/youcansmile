@@ -319,43 +319,80 @@
   }
 
   async function productForm(id) {
-    const [cats, all] = await Promise.all([Api.getCategories(), Api.getProducts()]);
-    const p = id ? all.find((x) => x.id === id) : null;
-    const imgs = (p && p.images) || [];
-    content.innerHTML = `
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:22px;">
-        <button class="btn btn-ghost btn-sm" id="backBtn">←</button>
-        <h2 style="font-size:1.4rem;">${p ? I18n.t('admin_edit_product') : I18n.t('admin_add_product')}</h2>
+    try {
+      const cats = await Api.getCategories();
+      let p = null;
+      if (id) {
+        p = await Api.getProduct(id);
+        if (!p) {
+          UI.toast(I18n.t('admin_empty'));
+          return;
+        }
+      }
+
+      const loc = (obj, lang) => {
+        if (!obj) return '';
+        if (typeof obj === 'string') return obj;
+        return String(obj[lang] || '');
+      };
+
+      const basePrice = p ? Number(p.oldPrice || p.price) || 0 : 0;
+      const discPct = p && p.oldPrice && p.oldPrice > p.price
+        ? Math.max(0, Math.min(90, Math.round((1 - Number(p.price) / Number(p.oldPrice)) * 100)))
+        : 0;
+      const imgs = (p && p.images) || [];
+
+      content.innerHTML = `
+      <div class="adm-form-head">
+        <button class="btn btn-ghost btn-sm" id="backBtn" type="button">←</button>
+        <h2>${p ? I18n.t('admin_edit_product') : I18n.t('admin_add_product')}</h2>
       </div>
       <form class="adm-form" id="prodForm">
         <div class="field">
           <label>${I18n.t('admin_title_ru')}</label>
-          <input id="fTitleRu" value="${p ? UI.escapeHtml(p.title.ru || '') : ''}" required/>
+          <input id="fTitleRu" value="${UI.escapeHtml(loc(p && p.title, 'ru'))}" required/>
         </div>
         <div class="field">
           <label>${I18n.t('admin_title_en')}</label>
-          <input id="fTitleEn" value="${p ? UI.escapeHtml(p.title.en || '') : ''}" required/>
+          <input id="fTitleEn" value="${UI.escapeHtml(loc(p && p.title, 'en'))}" required/>
+        </div>
+        <div class="field">
+          <label>Title (UZ)</label>
+          <input id="fTitleUz" value="${UI.escapeHtml(loc(p && p.title, 'uz'))}"/>
         </div>
         <div class="field full">
           <label>${I18n.t('admin_desc_ru')}</label>
-          <textarea id="fDescRu">${p ? UI.escapeHtml(p.desc.ru || '') : ''}</textarea>
+          <textarea id="fDescRu">${UI.escapeHtml(loc(p && p.desc, 'ru'))}</textarea>
         </div>
         <div class="field full">
           <label>${I18n.t('admin_desc_en')}</label>
-          <textarea id="fDescEn">${p ? UI.escapeHtml(p.desc.en || '') : ''}</textarea>
+          <textarea id="fDescEn">${UI.escapeHtml(loc(p && p.desc, 'en'))}</textarea>
         </div>
         <div class="field">
-          <label>${I18n.t('admin_price')}</label>
-          <input id="fPrice" type="number" min="0" value="${p ? p.price : ''}" required/>
+          <label>${I18n.t('admin_base_price')}</label>
+          <input id="fBasePrice" type="number" min="0" step="1000" value="${basePrice || ''}" required/>
         </div>
         <div class="field">
-          <label>${I18n.t('admin_old_price')}</label>
-          <input id="fOld" type="number" min="0" value="${p && p.oldPrice ? p.oldPrice : ''}"/>
+          <label>${I18n.t('admin_discount_pct')}</label>
+          <div class="adm-disc-row">
+            <input id="fDiscPct" type="number" min="0" max="90" step="1" value="${discPct}"/>
+            <span class="adm-disc-unit">%</span>
+            <input id="fDiscRange" type="range" min="0" max="70" step="1" value="${Math.min(70, discPct)}"/>
+          </div>
+        </div>
+        <div class="field full adm-price-preview" id="pricePreview">
+          <div class="adm-price-preview-label">${I18n.t('admin_final_price')}</div>
+          <div class="adm-price-preview-vals">
+            <b id="fFinalLabel">—</b>
+            <s id="fOldLabel" class="hidden"></s>
+            <span class="adm-badge sale hidden" id="fDiscBadge"></span>
+          </div>
+          <small>${I18n.t('admin_price_preview_hint')}</small>
         </div>
         <div class="field">
           <label>${I18n.t('admin_category')}</label>
           <select id="fCat" required>
-            ${cats.map((c) => `<option value="${c.id}" ${p && p.categoryId === c.id ? 'selected' : ''}>${UI.escapeHtml(I18n.txt(c.name))}</option>`).join('')}
+            ${(cats || []).map((c) => `<option value="${c.id}" ${p && p.categoryId === c.id ? 'selected' : ''}>${UI.escapeHtml(I18n.txt(c.name))}</option>`).join('')}
           </select>
         </div>
         <div class="field">
@@ -376,10 +413,6 @@
             <span class="slider"></span>
           </label>
         </div>
-        <div class="field">
-          <label>Title (UZ)</label>
-          <input id="fTitleUz" value="${p ? UI.escapeHtml((p.title && p.title.uz) || '') : ''}"/>
-        </div>
         <div class="field full">
           <label>${I18n.t('admin_images')}</label>
           <div class="img-grid" id="imgGrid"></div>
@@ -394,68 +427,120 @@
         </div>
       </form>`;
 
-    const imgGrid = document.getElementById('imgGrid');
-    const state = { images: [...imgs] };
+      window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    function paintImages() {
-      imgGrid.innerHTML = state.images
-        .map(
-          (src, i) => `
+      const imgGrid = document.getElementById('imgGrid');
+      const state = { images: [...imgs] };
+
+      function paintImages() {
+        imgGrid.innerHTML = state.images
+          .map(
+            (src, i) => `
           <div class="img-item">
             <img src="${src}" alt=""/>
             <button type="button" data-rm="${i}">✕</button>
           </div>`
-        )
-        .join('');
-      imgGrid.querySelectorAll('[data-rm]').forEach((b) =>
-        b.addEventListener('click', () => {
-          state.images.splice(Number(b.dataset.rm), 1);
-          paintImages();
-        })
-      );
-    }
-    paintImages();
-
-    document.getElementById('fFiles').addEventListener('change', async (e) => {
-      const files = [...e.target.files];
-      for (const f of files) {
-        if (f.size > 5 * 1024 * 1024) continue;
-        try {
-          state.images.push(await fileToDataURL(f));
-        } catch (err) {}
+          )
+          .join('');
+        imgGrid.querySelectorAll('[data-rm]').forEach((b) =>
+          b.addEventListener('click', () => {
+            state.images.splice(Number(b.dataset.rm), 1);
+            paintImages();
+          })
+        );
       }
       paintImages();
-    });
 
-    const back = () => renderProducts();
-    document.getElementById('backBtn').addEventListener('click', back);
-    document.getElementById('cancelBtn').addEventListener('click', back);
+      const baseEl = document.getElementById('fBasePrice');
+      const pctEl = document.getElementById('fDiscPct');
+      const rangeEl = document.getElementById('fDiscRange');
+      const finalLabel = document.getElementById('fFinalLabel');
+      const oldLabel = document.getElementById('fOldLabel');
+      const discBadge = document.getElementById('fDiscBadge');
 
-    document.getElementById('prodForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const data = {
-        title: {
-          ru: document.getElementById('fTitleRu').value.trim(),
-          uz: document.getElementById('fTitleUz').value.trim(),
-          en: document.getElementById('fTitleEn').value.trim(),
-        },
-        desc: {
-          ru: document.getElementById('fDescRu').value.trim(),
-          en: document.getElementById('fDescEn').value.trim(),
-        },
-        price: Number(document.getElementById('fPrice').value),
-        oldPrice: Number(document.getElementById('fOld').value) || null,
-        categoryId: document.getElementById('fCat').value,
-        tags: document.getElementById('fTags').value.split(',').map((t) => t.trim()).filter(Boolean),
-        inStock: document.getElementById('fStock').checked,
-        featured: document.getElementById('fFeatured').checked,
-        images: await persistProductImages(state.images),
-      };
-      if (p) await Api.updateProduct(p.id, data);
-      else await Api.createProduct(data);
-      UI.toast(I18n.t('admin_saved'));
-      renderProducts();
-    });
+      function calcPrices() {
+        const base = Math.max(0, Number(baseEl.value) || 0);
+        let pct = Math.round(Number(pctEl.value) || 0);
+        if (pct < 0) pct = 0;
+        if (pct > 90) pct = 90;
+        const final = pct > 0 ? Math.round(base * (1 - pct / 100)) : base;
+        return { base, pct, final };
+      }
+
+      function syncPreview(fromRange) {
+        if (fromRange) pctEl.value = rangeEl.value;
+        else rangeEl.value = Math.min(70, Math.max(0, Number(pctEl.value) || 0));
+        const { base, pct, final } = calcPrices();
+        finalLabel.textContent = Store.formatPrice(final, settings);
+        if (pct > 0 && base > final) {
+          oldLabel.textContent = Store.formatPrice(base, settings);
+          oldLabel.classList.remove('hidden');
+          discBadge.textContent = `−${pct}%`;
+          discBadge.classList.remove('hidden');
+        } else {
+          oldLabel.classList.add('hidden');
+          discBadge.classList.add('hidden');
+        }
+      }
+
+      baseEl.addEventListener('input', () => syncPreview(false));
+      pctEl.addEventListener('input', () => syncPreview(false));
+      rangeEl.addEventListener('input', () => syncPreview(true));
+      syncPreview(false);
+
+      document.getElementById('fFiles').addEventListener('change', async (e) => {
+        const files = [...e.target.files];
+        for (const f of files) {
+          if (f.size > 5 * 1024 * 1024) continue;
+          try {
+            state.images.push(await fileToDataURL(f));
+          } catch (err) {}
+        }
+        paintImages();
+      });
+
+      const back = () => renderProducts();
+      document.getElementById('backBtn').addEventListener('click', back);
+      document.getElementById('cancelBtn').addEventListener('click', back);
+
+      document.getElementById('prodForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { base, pct, final } = calcPrices();
+        if (!base) {
+          UI.toast(I18n.t('admin_base_price'));
+          return;
+        }
+        const data = {
+          title: {
+            ru: document.getElementById('fTitleRu').value.trim(),
+            uz: document.getElementById('fTitleUz').value.trim(),
+            en: document.getElementById('fTitleEn').value.trim(),
+          },
+          desc: {
+            ru: document.getElementById('fDescRu').value.trim(),
+            en: document.getElementById('fDescEn').value.trim(),
+          },
+          price: final,
+          oldPrice: pct > 0 ? base : null,
+          categoryId: document.getElementById('fCat').value,
+          tags: document.getElementById('fTags').value.split(',').map((t) => t.trim()).filter(Boolean),
+          inStock: document.getElementById('fStock').checked,
+          featured: document.getElementById('fFeatured').checked,
+          images: await persistProductImages(state.images),
+        };
+        try {
+          if (p) await Api.updateProduct(p.id, data);
+          else await Api.createProduct(data);
+          UI.toast(I18n.t('admin_saved'));
+          renderProducts();
+        } catch (err) {
+          UI.toast(err && err.message ? err.message : 'Error');
+        }
+      });
+    } catch (err) {
+      console.error(err);
+      UI.toast(err && err.message ? err.message : 'Error');
+    }
   }
 
   async function persistProductImages(images) {

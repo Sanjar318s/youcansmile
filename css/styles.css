@@ -2088,6 +2088,10 @@ html:not([data-theme='purple']) .adm-badge.sale { background: rgba(230,126,99,0.
 .switch input:checked + .slider { background: var(--purple); border-color: var(--purple); }
 .switch input:checked + .slider::before { transform: translateX(20px); }
 .adm-form { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.adm-form-head {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 22px;
+}
+.adm-form-head h2 { font-size: 1.35rem; margin: 0; }
 .adm-form .full { grid-column: 1 / -1; }
 .adm-form .field label { display: block; font-weight: 700; font-size: 0.85rem; margin-bottom: 6px; }
 .adm-form .field input, .adm-form .field textarea, .adm-form .field select {
@@ -2097,6 +2101,50 @@ html:not([data-theme='purple']) .adm-badge.sale { background: rgba(230,126,99,0.
 .adm-form .field input:focus, .adm-form .field textarea:focus { border-color: var(--purple); box-shadow: var(--glow); }
 .adm-form .field textarea { min-height: 90px; resize: vertical; }
 .adm-form .field small { color: var(--text-3); font-size: 0.8rem; }
+.adm-disc-row {
+  display: grid;
+  grid-template-columns: 72px auto 1fr;
+  gap: 10px;
+  align-items: center;
+}
+.adm-disc-row input[type="number"] { text-align: center; font-weight: 800; }
+.adm-disc-unit { font-weight: 800; color: var(--text-2); }
+.adm-disc-row input[type="range"] {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  accent-color: var(--purple);
+}
+.adm-price-preview {
+  background: color-mix(in srgb, var(--purple) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--purple) 35%, var(--border-soft));
+  border-radius: 14px;
+  padding: 14px 16px !important;
+}
+.adm-price-preview-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+.adm-price-preview-vals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.adm-price-preview-vals b {
+  font-size: 1.45rem;
+  color: var(--price);
+}
+.adm-price-preview-vals s {
+  color: var(--text-3);
+  font-size: 1rem;
+}
 
 /* ---- admin settings accordion ---- */
 .settings-form { display: flex; flex-direction: column; gap: 14px; padding-bottom: 88px; }
