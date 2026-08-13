@@ -100,6 +100,16 @@ const Chat = (() => {
   }
 
   function renderMessage(m) {
+    if (m.type === 'typing') {
+      return `
+        <div class="chat-msg theirs agent typing" data-id="${escape(m.id)}">
+          <div class="chat-avatar" title="${escape(authorLabel('agent'))}">${AVATARS.agent}</div>
+          <div class="chat-bubble chat-bubble-typing">
+            <span class="chat-typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="chat-typing-label">${escape(I18n.t('chat_typing'))}</span>
+          </div>
+        </div>`;
+    }
     const mine = m.author === 'customer';
     const pending = m._pending ? ' pending' : '';
     const failed = m._failed ? ' failed' : '';
@@ -252,8 +262,11 @@ const Chat = (() => {
   async function send(payload, optimistic) {
     if (!me) return null;
     const tempId = optimistic?.id;
+    const typingId = 'typing_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+    appendMessages([{ id: typingId, author: 'agent', type: 'typing', text: '', createdAt: 0 }], false);
     try {
       const res = await Api.sendChatMessage(payload);
+      removeMessageNode(typingId);
       const msgs = res.messages || [];
       if (tempId && msgs[0]) {
         replaceMessageNode(tempId, msgs[0]);
@@ -265,6 +278,7 @@ const Chat = (() => {
       if (inputEl) inputEl.value = '';
       return res;
     } catch (err) {
+      removeMessageNode(typingId);
       if (tempId) {
         const el = findMsgEl(tempId);
         if (el) el.classList.add('failed');

@@ -4064,6 +4064,25 @@ body.chat-loc-open { overflow: hidden; }
 .chat-end-sheet .chat-loc-picker-actions { justify-content: center; }
 body.chat-end-open { overflow: hidden; }
 
+/* AI typing indicator */
+.chat-bubble-typing { display: flex; align-items: center; gap: 8px; }
+.chat-typing-label { font-size: 0.8rem; color: var(--muted, #7a7468); }
+.chat-typing-dots { display: inline-flex; gap: 4px; }
+.chat-typing-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.35;
+  animation: chatTypingPulse 1.2s ease-in-out infinite;
+}
+.chat-typing-dots i:nth-child(2) { animation-delay: 0.2s; }
+.chat-typing-dots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes chatTypingPulse {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
+}
+
 .chat-rec-dot {
   width: 10px;
   height: 10px;
