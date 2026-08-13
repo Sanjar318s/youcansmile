@@ -1326,9 +1326,6 @@ html[data-theme='purple'] .card-title:hover { color: var(--lilac); }
     width: 100%;
     max-width: 420px;
     text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
   }
   .footer-sage .fs-brand {
     justify-content: center;
@@ -1337,8 +1334,6 @@ html[data-theme='purple'] .card-title:hover { color: var(--lilac); }
   .footer-sage .logo {
     display: inline-block;
     font-size: clamp(1.55rem, 7vw, 1.9rem);
-    margin-left: auto;
-    margin-right: auto;
   }
   .footer-sage .fs-about {
     max-width: 100%;
@@ -1351,24 +1346,31 @@ html[data-theme='purple'] .card-title:hover { color: var(--lilac); }
     font-size: 0.78rem;
     margin-bottom: 12px;
     text-align: center;
-    width: 100%;
   }
   .footer-sage a {
     margin-bottom: 8px;
     font-size: 0.9rem;
   }
-  .footer-sage .fs-col a {
-    display: inline-block;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .fs-social {
+  .footer-sage .fs-social {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
     justify-content: center;
-    width: 100%;
+    align-items: center;
+    gap: 12px;
+    width: auto;
+    margin: 0 auto;
   }
-  .fs-channel {
-    display: block !important;
-    text-align: center;
+  .footer-sage .fs-social a {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    flex: 0 0 44px;
+  }
+  .footer-sage .fs-channel {
+    display: inline-block !important;
+    margin-top: 14px !important;
   }
   .footer-sage .footer-bottom {
     flex-direction: column;
