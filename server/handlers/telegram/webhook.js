@@ -28,6 +28,7 @@ const {
   escHtml,
   shortId,
   customerLabel,
+  getSellerChatId,
 } = require(require('path').resolve(process.cwd(), 'lib/telegram'));
 const { getOrder, getOrders, getOrdersByStatus, getOrderByNumber } = require(
   require('path').resolve(process.cwd(), 'lib/data')
@@ -52,6 +53,7 @@ function isMenuText(t) {
     s === 'ℹ️ Статус' ||
     s === '❓ Помощь' ||
     s === '/orders' ||
+    s === '/find' ||
     s === '/chats' ||
     s === '/menu' ||
     s === '/status' ||
@@ -61,6 +63,12 @@ function isMenuText(t) {
     s.startsWith('/start ') ||
     s.startsWith('/connect')
   );
+}
+
+async function assertSellerChat(chatId) {
+  const seller = String((await getSellerChatId()) || process.env.TELEGRAM_SELLER_CHAT_ID || '');
+  if (!seller) return true;
+  return String(chatId) === seller;
 }
 
 function mergeInline(...kbs) {
@@ -302,7 +310,7 @@ async function handleMenuCommand(chatId, rawText) {
     await sendOrdersHub(chatId);
     return true;
   }
-  if (t === '🔎 Поиск заказа') {
+  if (t === '🔎 Поиск заказа' || t === '/find') {
     await sendTelegram({
       chat_id: chatId,
       text: '🔎 Пришлите 6-значный номер заказа сообщением (например 123456).',
@@ -377,6 +385,10 @@ async function handleCallback(cq) {
     return;
   }
   if (data.startsWith('ostatus:')) {
+    if (!(await assertSellerChat(chatId))) {
+      await sendTelegram({ chat_id: chatId, text: 'Нет доступа.' });
+      return;
+    }
     const parts = data.split(':');
     const orderId = parts[1];
     const nextStatus = parts[2];
