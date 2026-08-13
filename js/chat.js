@@ -302,9 +302,53 @@ const Chat = (() => {
     if (!wrap) return;
     wrap.innerHTML = `
       <div class="chat-quick-label">${escape(I18n.t('chat_quick_title'))}</div>
-      <div class="chat-quick-chips">
-        ${quickKeys().map((k) => `<button type="button" class="chat-quick-chip" data-quick="${escape(k)}">${escape(I18n.t(k))}</button>`).join('')}
+      <div class="chat-quick-row">
+        <button type="button" class="chat-quick-nav prev" aria-label="${escape(I18n.t('chat_quick_prev'))}">‹</button>
+        <div class="chat-quick-chips">
+          ${quickKeys().map((k) => `<button type="button" class="chat-quick-chip" data-quick="${escape(k)}">${escape(I18n.t(k))}</button>`).join('')}
+        </div>
+        <button type="button" class="chat-quick-nav next" aria-label="${escape(I18n.t('chat_quick_next'))}">›</button>
       </div>`;
+    bindQuickNav(wrap);
+  }
+
+  function bindQuickNav(wrap) {
+    const chips = wrap.querySelector('.chat-quick-chips');
+    const prev = wrap.querySelector('.chat-quick-nav.prev');
+    const next = wrap.querySelector('.chat-quick-nav.next');
+    if (!chips || !prev || !next) return;
+
+    const syncNav = () => {
+      const max = Math.max(0, chips.scrollWidth - chips.clientWidth);
+      const atStart = chips.scrollLeft <= 2;
+      const atEnd = chips.scrollLeft >= max - 2;
+      const noScroll = max <= 2;
+      prev.disabled = noScroll || atStart;
+      next.disabled = noScroll || atEnd;
+    };
+
+    const scrollByPage = (dir) => {
+      const amount = Math.max(120, Math.floor(chips.clientWidth * 0.8));
+      chips.scrollBy({ left: dir * amount, behavior: 'smooth' });
+    };
+
+    prev.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      scrollByPage(-1);
+    };
+    next.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      scrollByPage(1);
+    };
+    chips.addEventListener('scroll', syncNav, { passive: true });
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(syncNav);
+      ro.observe(chips);
+    }
+    requestAnimationFrame(syncNav);
+    setTimeout(syncNav, 80);
   }
 
   function hideQuickIfNeeded() {

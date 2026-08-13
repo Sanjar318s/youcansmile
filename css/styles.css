@@ -3069,6 +3069,31 @@ html[data-theme='purple'] .chat-quick {
   background: #141022;
   border-top: 1px solid rgba(167, 139, 250, 0.18);
 }
+html[data-theme='purple'] .chat-quick-label { color: #c4b5fd; }
+html[data-theme='purple'] .chat-quick-chip {
+  background: #2a1a45;
+  color: #f8f0ff !important;
+  border-color: rgba(167, 139, 250, 0.5);
+}
+html[data-theme='purple'] .chat-quick-chip:hover,
+html[data-theme='purple'] .chat-quick-chip:active {
+  background: rgba(168, 85, 247, 0.4);
+  border-color: #d8b4fe;
+  color: #faf5ff !important;
+}
+html[data-theme='purple'] .chat-quick-nav {
+  background: #2a1a45;
+  color: #f8f0ff;
+  border-color: rgba(167, 139, 250, 0.5);
+}
+html[data-theme='purple'] .chat-quick-nav:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.4);
+  border-color: #d8b4fe;
+}
+html[data-theme='purple'] .chat-quick-nav:disabled {
+  opacity: 0.35;
+  color: #a78bfa;
+}
 html[data-theme='purple'] .chat-bubble {
   background: #1e1433;
   color: #f3e8ff;
@@ -3207,7 +3232,39 @@ html[data-theme='purple'] #chatInput::placeholder { color: #8b7bb8; }
   color: var(--muted, #7a7468);
   margin-bottom: 8px;
 }
+.chat-quick-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.chat-quick-nav {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: #fff;
+  color: #3f4f34;
+  font-size: 1.15rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.chat-quick-nav:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 14%, #fff);
+  border-color: var(--accent);
+}
+.chat-quick-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
 .chat-quick-chips {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-wrap: nowrap;
   gap: 8px;
@@ -3215,13 +3272,14 @@ html[data-theme='purple'] #chatInput::placeholder { color: #8b7bb8; }
   -webkit-overflow-scrolling: touch;
   padding-bottom: 6px;
   scrollbar-width: none;
+  scroll-behavior: smooth;
 }
 .chat-quick-chips::-webkit-scrollbar { display: none; }
 .chat-quick-chip {
   flex: 0 0 auto;
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
   background: #fff;
-  color: var(--text);
+  color: #2c2c2c;
   border-radius: 999px;
   padding: 8px 14px;
   font-size: 0.82rem;
