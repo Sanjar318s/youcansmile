@@ -157,7 +157,16 @@ html[data-theme='purple'] .announcement { display: none; }
 
 /* ---------- reset / base ---------- */
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox — hide page scrollbar */
+  -ms-overflow-style: none; /* old Edge */
+}
+html::-webkit-scrollbar {
+  display: none; /* Chrome / Safari / Edge */
+  width: 0;
+  height: 0;
+}
 body {
   font-family: var(--font);
   background: var(--bg);
@@ -165,8 +174,11 @@ body {
   line-height: 1.6;
   min-height: 100vh;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   -webkit-font-smoothing: antialiased;
 }
+body::-webkit-scrollbar { display: none; width: 0; height: 0; }
 body::before {
   content: '';
   position: fixed;
