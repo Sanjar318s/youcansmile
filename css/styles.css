@@ -1855,50 +1855,47 @@ html[data-theme='purple'] .about-sage-text p { color: var(--text-2); }
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
+  align-self: start;
   gap: 4px;
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  padding: 6px;
+  border-radius: 12px;
+  padding: 4px;
   min-width: 0;
-  overflow: hidden;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
 }
 .admin-nav-wrap > .h-scroll-nav {
-  width: 32px;
-  height: 32px;
-  font-size: 1.15rem;
+  width: 30px;
+  height: 30px;
+  font-size: 1.1rem;
   flex-shrink: 0;
 }
 .admin-nav {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
   flex: 1;
   min-width: 0;
   background: transparent;
   border: none;
   border-radius: 0;
   padding: 0;
-  max-height: 40px;
+  height: auto;
+  max-height: none;
 }
-.admin-nav::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-}
+.admin-nav::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
 .admin-nav button {
-  padding: 7px 12px;
-  border-radius: 10px;
+  padding: 6px 11px;
+  border-radius: 9px;
   font-weight: 700;
-  font-size: 0.82rem;
-  line-height: 1.2;
+  font-size: 0.8rem;
+  line-height: 1.15;
   color: var(--text-2);
   white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
@@ -1913,6 +1910,18 @@ html[data-theme='purple'] .about-sage-text p { color: var(--text-2); }
   box-shadow: none !important;
 }
 .admin-nav button:hover:not(.active) { background: var(--surface-hover); color: var(--text); }
+
+/* Mobile: no arrow scroller — chips wrap tightly */
+@media (max-width: 759px) {
+  .admin-nav-wrap > .h-scroll-nav { display: none !important; }
+  .admin-nav-wrap {
+    padding: 6px;
+  }
+  .admin-nav {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+}
 .admin-content {
   background: var(--bg-card); border: 1px solid var(--border-soft);
   border-radius: 24px; padding: clamp(20px, 4vw, 36px); min-height: 400px;
