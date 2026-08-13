@@ -108,7 +108,7 @@
         UI.toast(I18n.t('chat_login_hint'));
         return;
       }
-      await Chat.open({ message: helpMessage(order), send: true });
+      await Chat.open({ message: helpMessage(order), send: true, orderId: order.id });
     });
   });
 })();

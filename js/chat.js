@@ -272,7 +272,7 @@ const Chat = (() => {
     }
   }
 
-  async function sendText(preset) {
+  async function sendText(preset, orderId) {
     const text = (preset != null ? String(preset) : inputEl.value).trim();
     if (!text) return;
     const optimistic = {
@@ -288,7 +288,9 @@ const Chat = (() => {
     if (inputEl) inputEl.value = '';
     syncActionBtn();
     hideQuickIfNeeded();
-    await send({ type: 'text', text, replyToId: replyTo }, optimistic);
+    const payload = { type: 'text', text, replyToId: replyTo };
+    if (orderId) payload.orderId = String(orderId).trim();
+    await send(payload, optimistic);
   }
 
   function quickKeys() {
@@ -986,7 +988,7 @@ const Chat = (() => {
     const msg = opts.message != null ? String(opts.message).trim() : '';
     if (!msg) return;
     if (opts.send) {
-      await sendText(msg);
+      await sendText(msg, opts.orderId);
     } else if (inputEl) {
       inputEl.value = msg;
       syncActionBtn();

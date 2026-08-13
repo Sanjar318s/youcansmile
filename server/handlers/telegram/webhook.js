@@ -19,10 +19,13 @@ const {
   sellerMainKeyboard,
   chatListKeyboard,
   liveKeyboard,
+  connectKeyboard,
+  formatOrderDetails,
   escHtml,
   shortId,
   customerLabel,
 } = require(require('path').resolve(process.cwd(), 'lib/telegram'));
+const { getOrder } = require(require('path').resolve(process.cwd(), 'lib/data'));
 
 function parsePrefix(raw) {
   const s = String(raw || '');
@@ -238,6 +241,32 @@ async function handleCallback(cq) {
   if (data.startsWith('connect:')) {
     const threadId = data.slice('connect:'.length);
     await doConnect(chatId, threadId);
+    return;
+  }
+  if (data.startsWith('order:')) {
+    const orderId = data.slice('order:'.length);
+    const order = await getOrder(orderId);
+    if (!order) {
+      await sendTelegram({ chat_id: chatId, text: 'Заказ не найден.' });
+      return;
+    }
+    const text = await formatOrderDetails(order);
+    let replyMarkup = undefined;
+    try {
+      if (order.customerId) {
+        const thread = await getOrCreateThread(order.customerId);
+        replyMarkup = connectKeyboard(thread.id);
+      }
+    } catch (_) {
+      /* no thread */
+    }
+    await sendTelegram({
+      chat_id: chatId,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+      reply_markup: replyMarkup,
+      text,
+    });
   }
 }
 

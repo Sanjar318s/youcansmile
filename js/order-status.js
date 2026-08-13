@@ -90,6 +90,6 @@
   document.getElementById('osHelpBtn')?.addEventListener('click', async () => {
     if (typeof Chat === 'undefined' || !Chat.open) return;
     const msg = I18n.t('account_order_help_msg').replace('{order}', Store.orderNumberLabel(order));
-    await Chat.open({ message: msg, send: true });
+    await Chat.open({ message: msg, send: true, orderId: order.id });
   });
 })();

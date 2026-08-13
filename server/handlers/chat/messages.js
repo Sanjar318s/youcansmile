@@ -80,6 +80,8 @@ module.exports = async (req, res) => {
       });
     } catch (_) {}
     const orders = await getCustomerOrders(me.id, me.phone);
+    const rawOrderId = String(body.orderId || '').trim();
+    const orderId = rawOrderId && orders.some((o) => o.id === rawOrderId) ? rawOrderId : null;
     let needsSeller = !!Number(thread.needs_seller);
 
     if (msg.type === 'text' && msg.text) {
@@ -105,7 +107,7 @@ module.exports = async (req, res) => {
           });
         } catch (_) {}
         if (connected) {
-          await notifySellerLive(toTelegramMsg(msg), customer, thread.id);
+          await notifySellerLive(toTelegramMsg(msg), customer, thread.id, orderId);
           await notifySellerBotAnswer(answer, customer, thread.id, agentMsg.id);
         }
         // FAQ answered — do not escalate / spam seller
@@ -113,7 +115,7 @@ module.exports = async (req, res) => {
         await setNeedsSeller(thread.id, true);
         needsSeller = true;
         if (connected) {
-          await notifySellerLive(toTelegramMsg(msg), customer, thread.id);
+          await notifySellerLive(toTelegramMsg(msg), customer, thread.id, orderId);
         } else {
           const escMsg = {
             id: uid('m'),
@@ -125,7 +127,7 @@ module.exports = async (req, res) => {
           };
           await saveMessage(escMsg);
           out.push(escMsg);
-          await notifySellerRequest(toTelegramMsg(msg), customer, thread.id);
+          await notifySellerRequest(toTelegramMsg(msg), customer, thread.id, orderId);
         }
       }
     } else {
@@ -133,7 +135,7 @@ module.exports = async (req, res) => {
       await setNeedsSeller(thread.id, true);
       needsSeller = true;
       if (connected) {
-        await notifySellerLive(toTelegramMsg(msg), customer, thread.id);
+        await notifySellerLive(toTelegramMsg(msg), customer, thread.id, orderId);
       } else {
         const tip = {
           id: uid('m'),
@@ -145,7 +147,7 @@ module.exports = async (req, res) => {
         };
         await saveMessage(tip);
         out.push(tip);
-        await notifySellerRequest(toTelegramMsg(msg), customer, thread.id);
+        await notifySellerRequest(toTelegramMsg(msg), customer, thread.id, orderId);
       }
     }
 
