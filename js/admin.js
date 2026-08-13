@@ -892,16 +892,18 @@
 
     const sections = ORDER_STATUSES.map((st) => {
       const list = byStatus[st];
+      const open = list.length > 0;
       const body = list.length
         ? list.map(orderCardHTML).join('')
         : `<p class="orders-section-empty">${I18n.t('admin_empty')}</p>`;
       return `
-        <section class="orders-section" id="orders-${st}" data-status="${st}">
-          <h3 class="orders-section-title">
+        <section class="orders-section${open ? ' is-open' : ''}" id="orders-${st}" data-status="${st}">
+          <button type="button" class="orders-section-title js-orders-toggle" aria-expanded="${open ? 'true' : 'false'}">
+            <span class="orders-section-chevron" aria-hidden="true"></span>
             <span class="order-status ${st}">${statusLabel(st)}</span>
             <span class="orders-section-count">${list.length}</span>
-          </h3>
-          <div class="orders-section-list">${body}</div>
+          </button>
+          <div class="orders-section-list"${open ? '' : ' hidden'}>${body}</div>
         </section>`;
     }).join('');
 
@@ -911,6 +913,34 @@
       ${sorted.length ? sections : `<p style="color:var(--ink-soft);">${I18n.t('admin_empty')}</p>`}`;
 
     bindOrderCardEvents(content);
+
+    content.querySelectorAll('.js-orders-toggle').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const section = btn.closest('.orders-section');
+        const listEl = section?.querySelector('.orders-section-list');
+        if (!section || !listEl) return;
+        const open = !section.classList.contains('is-open');
+        section.classList.toggle('is-open', open);
+        listEl.classList.toggle('hidden', !open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+    });
+
+    content.querySelectorAll('.orders-status-pill').forEach((a) => {
+      a.addEventListener('click', (e) => {
+        const href = a.getAttribute('href') || '';
+        const id = href.replace(/^#/, '');
+        const section = id ? document.getElementById(id) : null;
+        if (!section) return;
+        e.preventDefault();
+        const btn = section.querySelector('.js-orders-toggle');
+        const listEl = section.querySelector('.orders-section-list');
+        section.classList.add('is-open');
+        if (listEl) listEl.classList.remove('hidden');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
   }
 
   const SITE_TEXT_GROUPS = [
