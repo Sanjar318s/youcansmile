@@ -49,6 +49,8 @@ async function main() {
   if (env.TELEGRAM_SELLER_CHAT_ID) vercelEnvAdd('TELEGRAM_SELLER_CHAT_ID', env.TELEGRAM_SELLER_CHAT_ID);
   if (env.TELEGRAM_SELLER_CHAT_IDS) vercelEnvAdd('TELEGRAM_SELLER_CHAT_IDS', env.TELEGRAM_SELLER_CHAT_IDS);
   if (env.TELEGRAM_OWNER_USERS) vercelEnvAdd('TELEGRAM_OWNER_USERS', env.TELEGRAM_OWNER_USERS);
+  if (env.GEMINI_API_KEY) vercelEnvAdd('GEMINI_API_KEY', env.GEMINI_API_KEY);
+  if (env.GEMINI_MODEL) vercelEnvAdd('GEMINI_MODEL', env.GEMINI_MODEL);
 
   console.log('Redeploying…');
   const dep = spawnSync('vercel', ['deploy', '--prod', '--yes'], { cwd: root, encoding: 'utf8', shell: true });

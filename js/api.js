@@ -515,6 +515,11 @@ const Api = {
     return { ok: false, error: 'local' };
   },
 
+  async closeChat(payload) {
+    if (this.mode === 'remote') return this._remote('/api/chat/close', 'POST', payload);
+    return { ok: false, error: 'local' };
+  },
+
   /* --------------------- экспорт / импорт бэкапа ------------- */
   async exportBackup() {
     return {

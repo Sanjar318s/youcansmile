@@ -33,6 +33,8 @@ const Chat = (() => {
   let locPickerGen = 0;
   let activeAudio = null;
   let delegated = false;
+  let closeRating = 0;
+  let closeSubmitting = false;
 
   const AVATARS = {
     customer: '🙂',
@@ -791,15 +793,92 @@ const Chat = (() => {
     panel.querySelector('.chat-login-hint')?.classList.remove('hidden');
     panel.querySelector('.chat-compose')?.classList.add('hidden');
     panel.querySelector('#chatQuick')?.classList.add('hidden');
+    panel.querySelector('#chatEndBtn')?.classList.add('hidden');
   }
 
   function showCompose() {
     if (!panel) return;
     panel.querySelector('.chat-login-hint')?.classList.add('hidden');
     panel.querySelector('.chat-compose')?.classList.remove('hidden');
+    panel.querySelector('#chatEndBtn')?.classList.remove('hidden');
     renderQuick();
     hideQuickIfNeeded();
     syncActionBtn();
+  }
+
+  function setEndConfirmEnabled(on) {
+    const btn = root?.querySelector('#chatEndConfirm');
+    if (btn) btn.disabled = !on;
+  }
+
+  function renderStars() {
+    const box = root?.querySelector('#chatStars');
+    if (!box) return;
+    box.querySelectorAll('.chat-star').forEach((el) => {
+      const n = Number(el.dataset.star);
+      el.classList.toggle('on', n <= closeRating);
+    });
+  }
+
+  function openEndPicker() {
+    if (!me) return;
+    closeRating = 0;
+    closeSubmitting = false;
+    renderStars();
+    setEndConfirmEnabled(false);
+    const bodyEl = root?.querySelector('#chatEndBody');
+    if (bodyEl) {
+      bodyEl.classList.remove('hidden');
+      bodyEl.querySelector('.chat-end-question')?.classList.remove('hidden');
+      bodyEl.querySelector('.chat-end-sub')?.classList.remove('hidden');
+      bodyEl.querySelector('#chatStars')?.classList.remove('hidden');
+    }
+    const picker = root?.querySelector('#chatEndPicker');
+    if (picker) picker.classList.remove('hidden');
+    document.body.classList.add('chat-end-open');
+  }
+
+  function closeEndPicker() {
+    const picker = root?.querySelector('#chatEndPicker');
+    if (picker) picker.classList.add('hidden');
+    document.body.classList.remove('chat-end-open');
+    setEndConfirmEnabled(false);
+  }
+
+  function setCloseRating(n) {
+    closeRating = n;
+    renderStars();
+    setEndConfirmEnabled(true);
+  }
+
+  async function confirmEndPicker() {
+    if (closeSubmitting) return;
+    if (!closeRating) return;
+    closeSubmitting = true;
+    setEndConfirmEnabled(false);
+    try {
+      const res = await Api.closeChat({ rating: closeRating });
+      if (res && res.ok) {
+        const bodyEl = root?.querySelector('#chatEndBody');
+        if (bodyEl) {
+          bodyEl.querySelector('.chat-end-question')?.classList.add('hidden');
+          bodyEl.querySelector('.chat-end-sub')?.classList.add('hidden');
+          bodyEl.querySelector('#chatStars')?.classList.add('hidden');
+          const q = bodyEl.querySelector('.chat-end-question');
+          if (q) q.textContent = I18n.t('chat_end_thanks');
+          q.classList.remove('hidden');
+        }
+        setTimeout(closeEndPicker, 1600);
+      } else {
+        UI.toast(I18n.t('chat_end_fail'));
+        setEndConfirmEnabled(true);
+      }
+    } catch (_) {
+      UI.toast(I18n.t('chat_end_fail'));
+      setEndConfirmEnabled(true);
+    } finally {
+      closeSubmitting = false;
+    }
   }
 
   function ensureDelegation() {
@@ -835,7 +914,10 @@ const Chat = (() => {
       <div class="chat-panel hidden" id="chatPanel">
         <div class="chat-head">
           <b data-i18n="chat_title">${I18n.t('chat_title')}</b>
-          <button type="button" class="icon-btn chat-close" id="chatClose" aria-label="close">×</button>
+          <div class="chat-head-actions">
+            <button type="button" class="chat-end-btn hidden" id="chatEndBtn" title="${I18n.t('chat_end_btn')}">${I18n.t('chat_end_btn')}</button>
+            <button type="button" class="icon-btn chat-close" id="chatClose" aria-label="close">×</button>
+          </div>
         </div>
         <div class="chat-login-hint hidden">
           <p data-i18n="chat_login_hint">${I18n.t('chat_login_hint')}</p>
@@ -879,6 +961,30 @@ const Chat = (() => {
             <div class="chat-loc-picker-actions">
               <button type="button" class="btn btn-ghost" id="chatLocCancel">${I18n.t('chat_loc_cancel')}</button>
               <button type="button" class="btn btn-primary" id="chatLocConfirm" disabled>${I18n.t('chat_loc_confirm')}</button>
+            </div>
+          </div>
+        </div>
+        <div class="chat-loc-picker hidden" id="chatEndPicker" role="dialog" aria-modal="true" aria-label="${I18n.t('chat_end_title')}">
+          <div class="chat-loc-picker-backdrop" id="chatEndBackdrop"></div>
+          <div class="chat-loc-picker-sheet chat-end-sheet">
+            <div class="chat-loc-picker-head">
+              <b>${I18n.t('chat_end_title')}</b>
+              <button type="button" class="icon-btn chat-close" id="chatEndClose" aria-label="close">×</button>
+            </div>
+            <div class="chat-end-body" id="chatEndBody">
+              <p class="chat-end-question">${I18n.t('chat_end_question')}</p>
+              <p class="chat-end-sub">${I18n.t('chat_end_sub')}</p>
+              <div class="chat-stars" id="chatStars" role="radiogroup" aria-label="${I18n.t('chat_end_sub')}">
+                <button type="button" class="chat-star" data-star="1" role="radio" aria-label="1">★</button>
+                <button type="button" class="chat-star" data-star="2" role="radio" aria-label="2">★</button>
+                <button type="button" class="chat-star" data-star="3" role="radio" aria-label="3">★</button>
+                <button type="button" class="chat-star" data-star="4" role="radio" aria-label="4">★</button>
+                <button type="button" class="chat-star" data-star="5" role="radio" aria-label="5">★</button>
+              </div>
+              <div class="chat-loc-picker-actions">
+                <button type="button" class="btn btn-ghost" id="chatEndCancel">${I18n.t('chat_end_cancel')}</button>
+                <button type="button" class="btn btn-primary" id="chatEndConfirm" disabled>${I18n.t('chat_end_confirm')}</button>
+              </div>
             </div>
           </div>
         </div>
@@ -950,6 +1056,19 @@ const Chat = (() => {
     root.querySelector('#chatLocBackdrop')?.addEventListener('click', closeLocPicker);
     root.querySelector('#chatLocConfirm')?.addEventListener('click', () => {
       confirmLocPicker().catch(() => UI.toast(I18n.t('chat_send_fail')));
+    });
+
+    root.querySelector('#chatEndBtn')?.addEventListener('click', openEndPicker);
+    root.querySelector('#chatEndClose')?.addEventListener('click', closeEndPicker);
+    root.querySelector('#chatEndCancel')?.addEventListener('click', closeEndPicker);
+    root.querySelector('#chatEndBackdrop')?.addEventListener('click', closeEndPicker);
+    root.querySelector('#chatStars')?.addEventListener('click', (e) => {
+      const star = e.target.closest('.chat-star');
+      if (!star) return;
+      setCloseRating(Number(star.dataset.star));
+    });
+    root.querySelector('#chatEndConfirm')?.addEventListener('click', () => {
+      confirmEndPicker().catch(() => UI.toast(I18n.t('chat_end_fail')));
     });
 
     root.querySelector('#chatQuick').addEventListener('click', (e) => {

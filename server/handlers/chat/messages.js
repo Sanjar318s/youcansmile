@@ -6,12 +6,12 @@ const {
   getOrCreateThread,
   saveMessage,
   setNeedsSeller,
+  getMessages,
 } = require(require('path').resolve(process.cwd(), 'lib/chat'));
 const { aiReply } = require(require('path').resolve(process.cwd(), 'lib/ai'));
 const {
   notifySellerLive,
   notifySellerRequest,
-  notifySellerBotAnswer,
 } = require(require('path').resolve(process.cwd(), 'lib/telegram'));
 const { notifyAdmins, notifyUser } = require(require('path').resolve(process.cwd(), 'lib/push'));
 
@@ -85,38 +85,36 @@ module.exports = async (req, res) => {
     let needsSeller = !!Number(thread.needs_seller);
 
     if (msg.type === 'text' && msg.text) {
-      const { answer, escalate } = await aiReply(msg.text, orders, settings);
+      if (connected) {
+        // продавец уже в чате — ИИ молчит, сообщение уходит продавцу
+        await notifySellerLive(toTelegramMsg(msg), customer, thread.id, orderId);
+      } else {
+        const history = await getMessages(thread.id);
+        const { answer, escalate } = await aiReply(msg.text, orders, settings, { history });
 
-      if (answer) {
-        const agentMsg = {
-          id: uid('m'),
-          threadId: thread.id,
-          author: 'agent',
-          type: 'text',
-          text: answer,
-          createdAt: Date.now(),
-        };
-        await saveMessage(agentMsg);
-        out.push(agentMsg);
-        try {
-          await notifyUser(me.id, {
-            title: 'YouCanSmile',
-            body: String(agentMsg.text || '').slice(0, 100),
-            url: '/',
-            tag: `chat-agent-${thread.id}`,
-          });
-        } catch (_) {}
-        if (connected) {
-          await notifySellerLive(toTelegramMsg(msg), customer, thread.id, orderId);
-          await notifySellerBotAnswer(answer, customer, thread.id, agentMsg.id);
-        }
-        // FAQ answered — do not escalate / spam seller
-      } else if (escalate) {
-        await setNeedsSeller(thread.id, true);
-        needsSeller = true;
-        if (connected) {
-          await notifySellerLive(toTelegramMsg(msg), customer, thread.id, orderId);
-        } else {
+        if (answer) {
+          const agentMsg = {
+            id: uid('m'),
+            threadId: thread.id,
+            author: 'agent',
+            type: 'text',
+            text: answer,
+            createdAt: Date.now(),
+          };
+          await saveMessage(agentMsg);
+          out.push(agentMsg);
+          try {
+            await notifyUser(me.id, {
+              title: 'YouCanSmile',
+              body: String(agentMsg.text || '').slice(0, 100),
+              url: '/',
+              tag: `chat-agent-${thread.id}`,
+            });
+          } catch (_) {}
+          // FAQ/ИИ ответил — продавца не беспокоим
+        } else if (escalate) {
+          await setNeedsSeller(thread.id, true);
+          needsSeller = true;
           const escMsg = {
             id: uid('m'),
             threadId: thread.id,
