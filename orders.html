@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Товар — YoucanSmile</title>
-  <meta name="description" content="Авторские брелки и украшения ручной работы YoucanSmile."/>
+  <title data-i18n="account_orders">История заказов — YouCanSmile</title>
+  <meta name="robots" content="noindex"/>
   <link rel="icon" href="img/logo-ycs.png"/>
   <script>
     (function () {
@@ -27,20 +27,23 @@
   <link rel="stylesheet" href="css/styles.css?v=20260813q"/>
 </head>
 <body>
-
   <div id="header-root"></div>
 
-  <section class="section" style="padding-top:36px;">
-    <div class="container">
-      <div class="pd-grid" id="pdGrid"></div>
+  <section class="section account-section">
+    <div class="container account-wrap">
+      <h1 data-i18n="account_orders">История заказов</h1>
+      <p class="account-orders-hint muted" data-i18n="account_orders_hint">Все заказы со статусом — в том числе отменённые. Можно открыть подробности или написать продавцу.</p>
 
-      <section class="pd-reviews-wrap" id="pdReviews"></section>
-
-      <div class="section" style="padding-bottom:0;">
-        <div class="section-head">
-          <h2 data-i18n="product_related_id">Вам может понравиться</h2>
+      <div id="ordersGuest" class="hidden">
+        <div class="account-form card">
+          <p data-i18n="account_orders_login">Войдите в кабинет, чтобы видеть историю заказов.</p>
+          <a class="btn btn-primary" href="account.html" data-i18n="account_login_btn">Войти</a>
         </div>
-        <div class="products-grid" id="relatedGrid"></div>
+      </div>
+
+      <div id="ordersUser" class="hidden">
+        <div id="ordersList" class="account-orders"></div>
+        <p class="catalog-empty hidden" id="ordersEmpty" data-i18n="account_orders_empty">Заказов пока нет.</p>
       </div>
     </div>
   </section>
@@ -54,6 +57,6 @@
   <script src="js/ui.js?v=20260813q" defer></script>
   <script src="js/push-client.js?v=20260813q" defer></script>
   <script src="js/chat.js?v=20260813q" defer></script>
-  <script src="js/product.js?v=20260813q" defer></script>
+  <script src="js/orders-page.js?v=20260813q" defer></script>
 </body>
 </html>

@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Товар — YoucanSmile</title>
-  <meta name="description" content="Авторские брелки и украшения ручной работы YoucanSmile."/>
+  <title data-i18n="fav_title">Избранное — YouCanSmile</title>
   <link rel="icon" href="img/logo-ycs.png"/>
   <script>
     (function () {
@@ -27,20 +26,17 @@
   <link rel="stylesheet" href="css/styles.css?v=20260813q"/>
 </head>
 <body>
-
   <div id="header-root"></div>
 
   <section class="section" style="padding-top:36px;">
     <div class="container">
-      <div class="pd-grid" id="pdGrid"></div>
-
-      <section class="pd-reviews-wrap" id="pdReviews"></section>
-
-      <div class="section" style="padding-bottom:0;">
-        <div class="section-head">
-          <h2 data-i18n="product_related_id">Вам может понравиться</h2>
-        </div>
-        <div class="products-grid" id="relatedGrid"></div>
+      <div class="section-head">
+        <h1 data-i18n="fav_title">Избранное</h1>
+      </div>
+      <div class="products-grid" id="favGrid"></div>
+      <div class="catalog-empty hidden" id="favEmpty">
+        <p data-i18n="fav_empty">В избранном пока пусто. Жмите на сердечко у понравившихся товаров!</p>
+        <a class="btn btn-primary" style="margin-top:16px;" href="catalog.html" data-i18n="fav_empty_cta">Выбрать товары</a>
       </div>
     </div>
   </section>
@@ -54,6 +50,6 @@
   <script src="js/ui.js?v=20260813q" defer></script>
   <script src="js/push-client.js?v=20260813q" defer></script>
   <script src="js/chat.js?v=20260813q" defer></script>
-  <script src="js/product.js?v=20260813q" defer></script>
+  <script src="js/favorites.js?v=20260813q" defer></script>
 </body>
 </html>

@@ -146,14 +146,15 @@ const UI = (() => {
     const favSvg = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-4.9-8-11a4.5 4.5 0 0 1 8-3 4.5 4.5 0 0 1 8 3c0 6.1-8 11-8 11z"/></svg>`;
     const cartSvg = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1.6"/><circle cx="19" cy="21" r="1.6"/><path d="M2 3h3l2.5 12h11L21 7H6"/></svg>`;
     const profileSvg = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>`;
-    const ordersSvg = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5h11M9 12h11M9 19h11"/><path d="M4 5h.01M4 12h.01M4 19h.01"/></svg>`;
+    /* Receipt / order history */
+    const ordersSvg = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h8l3 3v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v4h4"/><path d="M9 12h6M9 16h4"/></svg>`;
 
     const nav = `
             <a href="catalog.html"${isActive('catalog')} data-i18n="sage_nav_shop">${I18n.t('sage_nav_shop')}</a>
-            <a href="catalog.html?cat=keychains" data-i18n="sage_nav_art">${I18n.t('sage_nav_art')}</a>
-            <a href="catalog.html" data-i18n="sage_nav_jewelry">${I18n.t('sage_nav_jewelry')}</a>
-            <a href="account.html#orders"${isActive('orders')} data-i18n="account_orders">${I18n.t('account_orders')}</a>
-            <a href="index.html#about" data-i18n="sage_nav_about">${I18n.t('sage_nav_about')}</a>`;
+            <a href="index.html#about" data-i18n="sage_nav_about">${I18n.t('sage_nav_about')}</a>
+            <a class="nav-mobile-only" href="favorites.html"${isActive('favorites')} data-i18n="nav_favorites">${I18n.t('nav_favorites')}</a>
+            <a class="nav-mobile-only" href="orders.html"${isActive('orders')} data-i18n="account_orders">${I18n.t('account_orders')}</a>
+            <a class="nav-mobile-only" href="account.html"${isActive('account')} data-i18n="nav_account">${I18n.t('nav_account')}</a>`;
 
     root.innerHTML = `
       <header class="header">
@@ -164,24 +165,30 @@ const UI = (() => {
           ${logo}
           <nav class="nav" id="nav">${nav}</nav>
           <div class="header-actions">
-            <button class="icon-btn search-toggle" id="searchToggle" aria-label="search">
-              ${iconMarkup('search', searchSvg)}
-            </button>
-            <a class="icon-btn fav-btn" href="cart.html#favs" aria-label="favorites" title="${I18n.t('nav_favorites')}">
-              ${iconMarkup('fav', favSvg)}
-              <span class="badge fav-badge hidden">0</span>
-            </a>
-            <a class="icon-btn orders-btn" href="account.html#orders" aria-label="${I18n.t('account_orders')}" title="${I18n.t('account_orders')}">
-              ${ordersSvg}
-            </a>
-            <a class="icon-btn account-btn" href="account.html" aria-label="${I18n.t('nav_account')}" title="${I18n.t('nav_account')}">
-              ${profileSvg}
-            </a>
-            <a class="icon-btn cart-btn" href="cart.html" aria-label="cart" title="${I18n.t('nav_cart')}">
-              ${iconMarkup('cart', cartSvg)}
-              <span class="badge cart-badge hidden">0</span>
-            </a>
-            ${settingsPanel}
+            <div class="header-group header-group-tools">
+              <button class="icon-btn search-toggle" id="searchToggle" aria-label="search" title="${I18n.t('search_placeholder')}">
+                ${iconMarkup('search', searchSvg)}
+              </button>
+            </div>
+            <div class="header-group header-group-shop">
+              <a class="icon-btn fav-btn" href="favorites.html" aria-label="${I18n.t('nav_favorites')}" title="${I18n.t('nav_favorites')}">
+                ${iconMarkup('fav', favSvg)}
+                <span class="badge fav-badge hidden">0</span>
+              </a>
+              <a class="icon-btn orders-btn" href="orders.html" aria-label="${I18n.t('account_orders')}" title="${I18n.t('account_orders')}">
+                ${ordersSvg}
+              </a>
+              <a class="icon-btn cart-btn" href="cart.html" aria-label="${I18n.t('nav_cart')}" title="${I18n.t('nav_cart')}">
+                ${iconMarkup('cart', cartSvg)}
+                <span class="badge cart-badge hidden">0</span>
+              </a>
+            </div>
+            <div class="header-group header-group-user">
+              <a class="icon-btn account-btn" href="account.html" aria-label="${I18n.t('nav_account')}" title="${I18n.t('nav_account')}">
+                ${profileSvg}
+              </a>
+              ${settingsPanel}
+            </div>
           </div>
         </div>
         <div class="search-bar" id="searchBar">

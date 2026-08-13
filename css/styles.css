@@ -635,11 +635,22 @@ html[data-theme='purple'] .nav a.active::after, html[data-theme='purple'] .nav a
 .nav-admin { opacity: .85; }
 html[data-theme='purple'] .nav-admin { color: var(--lilac) !important; }
 
-.header-actions { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
+.header-actions { display: flex; align-items: center; gap: 4px; margin-left: 8px; }
+.header-group { display: flex; align-items: center; gap: 2px; }
+.header-group + .header-group {
+  margin-left: 2px;
+  padding-left: 8px;
+  border-left: 1px solid color-mix(in srgb, var(--header-text, var(--text-2)) 22%, transparent);
+}
+html[data-theme='purple'] .header-group + .header-group {
+  border-left-color: rgba(167, 139, 250, 0.28);
+}
 .header-actions .icon-btn { color: var(--header-text); }
 .header-actions .icon-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
 html[data-theme='purple'] .header-actions .icon-btn { color: var(--text-2); }
 html[data-theme='purple'] .header-actions .icon-btn:hover { background: var(--surface-hover); color: var(--text); }
+html[data-theme='purple'] .header-actions .orders-btn { color: var(--lilac); }
+.nav-mobile-only { display: none !important; }
 
 .theme-toggle {
   display: inline-flex; align-items: center; justify-content: center;
@@ -2589,6 +2600,7 @@ html[data-theme='purple'] .order-card .oc-badge.cart {
   }
   .nav.open { transform: none; opacity: 1; pointer-events: auto; }
   .nav a { font-size: 1rem; padding: 10px 6px; width: 100%; }
+  .nav-mobile-only { display: block !important; }
   html:not([data-theme='purple']) .nav a { color: var(--ink); }
   html:not([data-theme='purple']) .nav a:hover { color: var(--accent); }
   html[data-theme='purple'] .nav { background: rgba(10, 6, 22, 0.97); }
@@ -2619,6 +2631,7 @@ html[data-theme='purple'] .order-card .oc-badge.cart {
 @media (max-width: 520px) {
   .header-inner { gap: 6px; }
   .header-actions { margin-left: auto; gap: 0; }
+  .header-group + .header-group { padding-left: 6px; margin-left: 0; }
   .header-actions .icon-btn { width: 40px; height: 40px; }
   .hero-sage-actions .btn { width: 100%; max-width: 300px; }
   .hero-actions .btn { width: 100%; max-width: 300px; }

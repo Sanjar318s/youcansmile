@@ -81,7 +81,7 @@
     ${reviewLinks}
     <div class="os-actions">
       <button type="button" class="btn btn-primary" id="osHelpBtn">${I18n.t('account_order_help')}</button>
-      <a class="btn btn-secondary" href="account.html#orders">${I18n.t('account_orders')}</a>
+      <a class="btn btn-secondary" href="orders.html">${I18n.t('account_orders')}</a>
       <a class="btn btn-secondary" href="index.html">${I18n.t('order_status_home')}</a>
     </div>
   `;

@@ -336,19 +336,4 @@
     Store.clearCart();
     UI.syncCounts();
   });
-
-  if (location.hash === '#favs') {
-    document.getElementById('favsSection').scrollIntoView({ behavior: 'smooth' });
-  }
-  const favIds = Store.getFavorites();
-  const favProds = prods.filter((p) => favIds.includes(p.id));
-  const favGrid = document.getElementById('favGrid');
-  const favEmpty = document.getElementById('favEmpty');
-  if (favProds.length) {
-    favEmpty.classList.add('hidden');
-    await UI.renderGrid(favGrid, favProds, s);
-  } else {
-    favGrid.classList.add('hidden');
-    favEmpty.classList.remove('hidden');
-  }
 })();
