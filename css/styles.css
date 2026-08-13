@@ -2336,6 +2336,18 @@ html[data-theme='purple'] .orders-section {
   background: #141022;
   border-color: rgba(167, 139, 250, 0.25);
 }
+.orders-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.orders-section-fixed .orders-section-list { padding: 0 12px 12px; }
+.orders-section-fixed .orders-section-heading .orders-section-count { margin-left: auto; }
 .orders-section-title {
   display: flex;
   align-items: center;

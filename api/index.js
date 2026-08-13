@@ -36,6 +36,7 @@ module.exports = async (req, res) => {
     if (route === 'chat/messages') return load('chat/messages.js')(req, res);
     if (route === 'telegram/webhook') return load('telegram/webhook.js')(req, res);
     if (route === 'push' || route === 'push/subscribe') return load('push/index.js')(req, res);
+    if (route === 'ping') return load('ping.js')(req, res);
 
     if (route === 'products') return load('products/index.js')(req, res);
     if (parts[0] === 'products' && parts[1]) {

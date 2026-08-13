@@ -18,13 +18,40 @@
     {
       "source": "/css/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" }
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
     },
     {
       "source": "/js/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=60, must-revalidate" }
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/api/products",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=30, s-maxage=300, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/api/categories",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=30, s-maxage=300, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/api/reviews",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=30, s-maxage=300, stale-while-revalidate=86400"
+        }
       ]
     },
     {
@@ -36,5 +63,8 @@
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" }
+  ],
+  "crons": [
+    { "path": "/api/ping", "schedule": "*/10 * * * *" }
   ]
 }

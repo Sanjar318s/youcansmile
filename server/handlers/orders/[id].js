@@ -1,15 +1,9 @@
 const { cors, json, readBody, baseUrl } = require(require('path').resolve(process.cwd(), 'lib/http'));
-const { getOrder, saveOrder, deleteOrder } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const { getOrder, deleteOrder } = require(require('path').resolve(process.cwd(), 'lib/data'));
 const { getSessionUser } = require(require('path').resolve(process.cwd(), 'lib/auth'));
-const { uid } = require(require('path').resolve(process.cwd(), 'lib/db'));
-const {
-  ORDER_STATUSES,
-  normalizeStatus,
-  statusLabelRu,
-  orderNumberLabel,
-} = require(require('path').resolve(process.cwd(), 'lib/orders'));
-const { getOrCreateThread, saveMessage } = require(require('path').resolve(process.cwd(), 'lib/chat'));
-const { notifyUser } = require(require('path').resolve(process.cwd(), 'lib/push'));
+const { saveOrder } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const { ORDER_STATUSES } = require(require('path').resolve(process.cwd(), 'lib/orders'));
+const { applyOrderStatus } = require(require('path').resolve(process.cwd(), 'lib/order-status'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
@@ -33,55 +27,34 @@ module.exports = async (req, res) => {
       if (!me || me.role !== 'admin') return json(res, 401, { error: 'auth' });
       if (!order) return json(res, 404, { error: 'not_found' });
       const patch = (await readBody(req)) || {};
-      const next = Object.assign({}, order);
+
+      if (patch.note != null && patch.status == null) {
+        const next = Object.assign({}, order, {
+          adminNote: String(patch.note),
+          updatedAt: Date.now(),
+        });
+        await saveOrder(next);
+        return json(res, 200, next);
+      }
 
       if (patch.status != null) {
         const status = String(patch.status);
         if (!ORDER_STATUSES.includes(status)) {
           return json(res, 400, { error: 'bad_status', allowed: ORDER_STATUSES });
         }
-        next.status = normalizeStatus(status);
-      }
-      if (patch.note != null) next.adminNote = String(patch.note);
-
-      next.updatedAt = Date.now();
-      await saveOrder(next);
-
-      let chatNotified = false;
-      let pushNotified = false;
-      if (patch.status != null && next.customerId) {
-        const label = orderNumberLabel(next, 'ru');
-        const st = statusLabelRu(next.status);
-        const site = baseUrl(req);
-        const statusUrl = `${site}/order-status.html?id=${encodeURIComponent(next.id)}`;
-        const text = `${label}: статус «${st}».\nОтслеживать: ${statusUrl}`;
-        try {
-          const thread = await getOrCreateThread(next.customerId);
-          await saveMessage({
-            id: uid('m'),
-            threadId: thread.id,
-            author: 'seller',
-            type: 'text',
-            text,
-            createdAt: Date.now(),
-          });
-          chatNotified = true;
-        } catch (_) {}
-        try {
-          const results = await notifyUser(next.customerId, {
-            title: 'YouCanSmile',
-            body: `${label}: ${st}`,
-            url: statusUrl,
-            tag: `order-${next.id}`,
-          });
-          pushNotified = results.some((r) => r.ok);
-        } catch (_) {}
+        let base = order;
+        if (patch.note != null) {
+          base = Object.assign({}, order, { adminNote: String(patch.note) });
+        }
+        const updated = await applyOrderStatus(base, status, { siteUrl: baseUrl(req) });
+        return json(res, 200, updated);
       }
 
-      return json(res, 200, Object.assign({}, next, { chatNotified, pushNotified }));
+      return json(res, 200, order);
     }
     return json(res, 405, { error: 'method' });
   } catch (e) {
+    if (e && e.code === 'bad_status') return json(res, 400, { error: 'bad_status' });
     return json(res, 500, { error: e.message });
   }
 };

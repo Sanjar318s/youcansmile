@@ -892,10 +892,23 @@
 
     const sections = ORDER_STATUSES.map((st) => {
       const list = byStatus[st];
-      const open = list.length > 0;
       const body = list.length
         ? list.map(orderCardHTML).join('')
         : `<p class="orders-section-empty">${I18n.t('admin_empty')}</p>`;
+
+      // New orders: always visible, no accordion
+      if (st === 'new') {
+        return `
+        <section class="orders-section orders-section-fixed is-open" id="orders-new" data-status="new">
+          <div class="orders-section-heading">
+            <span class="order-status new">${statusLabel('new')}</span>
+            <span class="orders-section-count">${list.length}</span>
+          </div>
+          <div class="orders-section-list">${body}</div>
+        </section>`;
+      }
+
+      const open = list.length > 0;
       return `
         <section class="orders-section${open ? ' is-open' : ''}" id="orders-${st}" data-status="${st}">
           <button type="button" class="orders-section-title js-orders-toggle" aria-expanded="${open ? 'true' : 'false'}">

@@ -104,11 +104,17 @@
     btn.addEventListener('click', async () => {
       const id = btn.dataset.orderId;
       const order = orders.find((x) => x.id === id) || { id };
-      if (typeof Chat === 'undefined' || !Chat.open) {
+      const chat =
+        typeof ChatLazy !== 'undefined' && ChatLazy.ensure
+          ? await ChatLazy.ensure().catch(() => null)
+          : typeof Chat !== 'undefined'
+            ? Chat
+            : null;
+      if (!chat || !chat.open) {
         UI.toast(I18n.t('chat_login_hint'));
         return;
       }
-      await Chat.open({ message: helpMessage(order), send: true, orderId: order.id });
+      await chat.open({ message: helpMessage(order), send: true, orderId: order.id });
     });
   });
 })();

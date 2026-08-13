@@ -86,10 +86,15 @@
     </div>
   `;
 
-  if (typeof Chat !== 'undefined') Chat.init();
   document.getElementById('osHelpBtn')?.addEventListener('click', async () => {
-    if (typeof Chat === 'undefined' || !Chat.open) return;
+    const chat =
+      typeof ChatLazy !== 'undefined' && ChatLazy.ensure
+        ? await ChatLazy.ensure().catch(() => null)
+        : typeof Chat !== 'undefined'
+          ? Chat
+          : null;
+    if (!chat || !chat.open) return;
     const msg = I18n.t('account_order_help_msg').replace('{order}', Store.orderNumberLabel(order));
-    await Chat.open({ message: msg, send: true, orderId: order.id });
+    await chat.open({ message: msg, send: true, orderId: order.id });
   });
 })();

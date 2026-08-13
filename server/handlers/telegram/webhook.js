@@ -10,6 +10,7 @@ const {
   getCustomerBrief,
   getMessages,
   setNeedsSeller,
+  getOrCreateThread,
 } = require(require('path').resolve(process.cwd(), 'lib/chat'));
 const {
   sendTelegram,
@@ -20,12 +21,19 @@ const {
   chatListKeyboard,
   liveKeyboard,
   connectKeyboard,
+  ordersHubKeyboard,
+  ordersListKeyboard,
+  orderStatusKeyboard,
   formatOrderDetails,
   escHtml,
   shortId,
   customerLabel,
 } = require(require('path').resolve(process.cwd(), 'lib/telegram'));
-const { getOrder } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const { getOrder, getOrders, getOrdersByStatus, getOrderByNumber } = require(
+  require('path').resolve(process.cwd(), 'lib/data')
+);
+const { ORDER_STATUSES, statusLabelRu, orderNumber } = require(require('path').resolve(process.cwd(), 'lib/orders'));
+const { applyOrderStatus } = require(require('path').resolve(process.cwd(), 'lib/order-status'));
 
 function parsePrefix(raw) {
   const s = String(raw || '');
@@ -37,10 +45,13 @@ function parsePrefix(raw) {
 function isMenuText(t) {
   const s = String(t || '').trim();
   return (
+    s === '📦 Заказы' ||
+    s === '🔎 Поиск заказа' ||
     s === '📋 Чаты' ||
     s === '🔌 Отключиться' ||
     s === 'ℹ️ Статус' ||
     s === '❓ Помощь' ||
+    s === '/orders' ||
     s === '/chats' ||
     s === '/menu' ||
     s === '/status' ||
@@ -50,6 +61,97 @@ function isMenuText(t) {
     s.startsWith('/start ') ||
     s.startsWith('/connect')
   );
+}
+
+function mergeInline(...kbs) {
+  const rows = [];
+  for (const kb of kbs) {
+    if (kb && Array.isArray(kb.inline_keyboard)) rows.push(...kb.inline_keyboard);
+  }
+  return rows.length ? { inline_keyboard: rows } : undefined;
+}
+
+async function orderCounts() {
+  const all = await getOrders();
+  const counts = {};
+  for (const s of ORDER_STATUSES) counts[s] = 0;
+  for (const o of all || []) {
+    const st = ORDER_STATUSES.includes(o.status) ? o.status : 'new';
+    counts[st] = (counts[st] || 0) + 1;
+  }
+  return counts;
+}
+
+async function sendOrdersHub(chatId) {
+  const counts = await orderCounts();
+  return sendTelegram({
+    chat_id: chatId,
+    parse_mode: 'HTML',
+    text: '<b>📦 Заказы</b>\nВыберите раздел по статусу или поиск по номеру:',
+    reply_markup: ordersHubKeyboard(counts),
+  });
+}
+
+async function sendOrdersList(chatId, status) {
+  const st = ORDER_STATUSES.includes(status) ? status : 'new';
+  const orders = await getOrdersByStatus(st, 15);
+  if (!orders.length) {
+    return sendTelegram({
+      chat_id: chatId,
+      parse_mode: 'HTML',
+      text: `В разделе «${escHtml(statusLabelRu(st))}» пока пусто.`,
+      reply_markup: ordersListKeyboard([], st),
+    });
+  }
+  const lines = orders.map((o, i) => {
+    const who = (o.customer && (o.customer.contact || o.customer.name || o.customer.phone)) || '—';
+    return `${i + 1}. <b>#${escHtml(orderNumber(o))}</b> · ${escHtml(String(who).slice(0, 40))}`;
+  });
+  return sendTelegram({
+    chat_id: chatId,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    text:
+      `<b>${escHtml(statusLabelRu(st))}</b> (${orders.length})\n\n` +
+      lines.join('\n') +
+      `\n\nОткройте заказ кнопкой ниже:`,
+    reply_markup: ordersListKeyboard(orders, st),
+  });
+}
+
+async function sendOrderCard(chatId, order) {
+  const text = await formatOrderDetails(order);
+  let connectKb;
+  try {
+    if (order.customerId) {
+      const thread = await getOrCreateThread(order.customerId);
+      connectKb = connectKeyboard(thread.id);
+    }
+  } catch (_) {}
+  return sendTelegram({
+    chat_id: chatId,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    reply_markup: mergeInline(orderStatusKeyboard(order), connectKb),
+    text,
+  });
+}
+
+async function tryOrderNumberLookup(chatId, rawText) {
+  const digits = String(rawText || '').replace(/\D/g, '');
+  if (digits.length < 4 || digits.length > 6) return false;
+  if (!/^\d{4,6}$/.test(String(rawText || '').trim().replace(/\s/g, ''))) return false;
+  const order = await getOrderByNumber(digits);
+  if (!order) {
+    await sendTelegram({
+      chat_id: chatId,
+      text: `Заказ №${digits.padStart(6, '0')} не найден.`,
+      reply_markup: sellerMainKeyboard(),
+    });
+    return true;
+  }
+  await sendOrderCard(chatId, order);
+  return true;
 }
 
 async function downloadTelegramFile(fileId) {
@@ -196,6 +298,18 @@ async function handleMenuCommand(chatId, rawText) {
     await sendSellerHelp(chatId);
     return true;
   }
+  if (t === '📦 Заказы' || t === '/orders') {
+    await sendOrdersHub(chatId);
+    return true;
+  }
+  if (t === '🔎 Поиск заказа') {
+    await sendTelegram({
+      chat_id: chatId,
+      text: '🔎 Пришлите 6-значный номер заказа сообщением (например 123456).',
+      reply_markup: sellerMainKeyboard(),
+    });
+    return true;
+  }
   if (t === '📋 Чаты' || t === '/chats' || t === '/menu') {
     await sendChatsList(chatId);
     return true;
@@ -243,6 +357,45 @@ async function handleCallback(cq) {
     await doConnect(chatId, threadId);
     return;
   }
+  if (data === 'orders:hub' || data === 'orders') {
+    await sendOrdersHub(chatId);
+    return;
+  }
+  if (data === 'orders:search') {
+    await sendTelegram({
+      chat_id: chatId,
+      text: '🔎 Пришлите 6-значный номер заказа сообщением (например 123456).',
+      reply_markup: sellerMainKeyboard(),
+    });
+    return;
+  }
+  if (data.startsWith('orders:')) {
+    const status = data.slice('orders:'.length);
+    if (ORDER_STATUSES.includes(status)) {
+      await sendOrdersList(chatId, status);
+    }
+    return;
+  }
+  if (data.startsWith('ostatus:')) {
+    const parts = data.split(':');
+    const orderId = parts[1];
+    const nextStatus = parts[2];
+    const order = await getOrder(orderId);
+    if (!order) {
+      await sendTelegram({ chat_id: chatId, text: 'Заказ не найден.' });
+      return;
+    }
+    try {
+      const updated = await applyOrderStatus(order, nextStatus);
+      await sendOrderCard(chatId, updated);
+    } catch (e) {
+      await sendTelegram({
+        chat_id: chatId,
+        text: e && e.code === 'bad_status' ? 'Некорректный статус.' : 'Не удалось обновить статус.',
+      });
+    }
+    return;
+  }
   if (data.startsWith('order:')) {
     const orderId = data.slice('order:'.length);
     const order = await getOrder(orderId);
@@ -250,23 +403,7 @@ async function handleCallback(cq) {
       await sendTelegram({ chat_id: chatId, text: 'Заказ не найден.' });
       return;
     }
-    const text = await formatOrderDetails(order);
-    let replyMarkup = undefined;
-    try {
-      if (order.customerId) {
-        const thread = await getOrCreateThread(order.customerId);
-        replyMarkup = connectKeyboard(thread.id);
-      }
-    } catch (_) {
-      /* no thread */
-    }
-    await sendTelegram({
-      chat_id: chatId,
-      parse_mode: 'HTML',
-      disable_web_page_preview: true,
-      reply_markup: replyMarkup,
-      text,
-    });
+    await sendOrderCard(chatId, order);
   }
 }
 
@@ -341,11 +478,22 @@ module.exports = async (req, res) => {
     const chatId = msg.chat?.id;
     if (!chatId) return json(res, 200, { ok: true });
 
-    // Bind seller chat on any interaction from this chat once registered via /start
     // Menu commands
     if (msg.text && isMenuText(msg.text)) {
       const handled = await handleMenuCommand(chatId, msg.text);
       if (handled) return json(res, 200, { ok: true, menu: true });
+    }
+
+    // Order number search (4–6 digits) when not routing as a chat reply
+    if (msg.text && /^\d{4,6}$/.test(String(msg.text).trim())) {
+      const activeForSearch = await getConnectedThread();
+      const hasPrefix =
+        !!parsePrefix(msg.text) ||
+        !!(msg.reply_to_message && parsePrefix(msg.reply_to_message.text || msg.reply_to_message.caption || ''));
+      if (!activeForSearch && !hasPrefix) {
+        const found = await tryOrderNumberLookup(chatId, msg.text);
+        if (found) return json(res, 200, { ok: true, orderSearch: true });
+      }
     }
 
     // 1) Reply-to or inline ycs: prefix (works even if not connected)
@@ -366,10 +514,13 @@ module.exports = async (req, res) => {
     }
 
     if (!threadId) {
+      if (msg.text && (await tryOrderNumberLookup(chatId, msg.text))) {
+        return json(res, 200, { ok: true, orderSearch: true });
+      }
       await sendTelegram({
         chat_id: chatId,
         text:
-          'Сначала подключитесь к чату клиента.\nНажмите «📋 Чаты» или кнопку «Подключиться» под запросом.',
+          'Сначала подключитесь к чату клиента.\nНажмите «📋 Чаты» или кнопку «Подключиться» под запросом.\nИли «📦 Заказы» / номер заказа для поиска.',
         reply_markup: sellerMainKeyboard(),
       });
       return json(res, 200, { ok: true, skip: 'no_thread' });
