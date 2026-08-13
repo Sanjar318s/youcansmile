@@ -99,7 +99,7 @@
 
   const mePromise = Api.getMe().catch(() => null);
   const settingsPromise = Api.getSettings().catch(() => ({}));
-  const headerPromise = UI.renderHeader('account');
+  const headerPromise = UI.renderHeader(location.hash === '#orders' ? 'orders' : 'account');
   const footerPromise = UI.renderFooter();
 
   const [me, s] = await Promise.all([mePromise, settingsPromise]);
