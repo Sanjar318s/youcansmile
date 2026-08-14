@@ -232,6 +232,30 @@ html[data-theme='purple'] .card:hover {
 ul { list-style: none; }
 .hidden { display: none !important; }
 
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  filter: blur(0);
+  transition:
+    opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.reveal.is-inview {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    filter: none !important;
+  }
+}
+
 .container {
   width: 100%;
   max-width: 1200px;
@@ -1220,12 +1244,59 @@ html:not([data-theme='purple']) .hero-scroll-hint {
   content: ''; position: absolute; inset: 0;
   background: var(--img-glow);
   pointer-events: none;
+  z-index: 2;
 }
-.card-img img {
-  width: 100%; height: 100%; object-fit: cover;
-  transition: transform .5s ease; position: relative; z-index: 1;
+.card-slides-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 1;
 }
-.card:hover .card-img img { transform: scale(1.06); }
+.card-slides {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.55s ease;
+  will-change: transform;
+}
+.card-slides img,
+.card-img > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  flex: 0 0 100%;
+  transition: transform .5s ease;
+}
+.card:hover .card-img:not(.has-slides) img,
+.card:hover .card-img.has-slides .card-slides img {
+  transform: scale(1.04);
+}
+.card-slide-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+.card-slide-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(60, 50, 40, 0.28);
+  display: block;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.card-slide-dots i.on {
+  background: var(--accent, #7d936a);
+  transform: scale(1.2);
+}
 
 .badge-stock {
   position: absolute; top: 12px; left: 12px; z-index: 3;
@@ -3572,6 +3643,14 @@ html[data-theme='purple'] #chatInput::placeholder { color: #8b7bb8; }
   background: color-mix(in srgb, var(--accent) 18%, #fff);
   border: 1px solid var(--border-soft);
   font-size: 1rem;
+  overflow: hidden;
+  padding: 0;
+}
+.chat-head-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .chat-head-text { min-width: 0; }
 .chat-head b { font-weight: 700; letter-spacing: 0.01em; display: block; line-height: 1.2; }
@@ -3645,6 +3724,14 @@ html[data-theme='purple'] #chatInput::placeholder { color: #8b7bb8; }
   place-items: center;
   font-size: 0.95rem;
   flex-shrink: 0;
+  overflow: hidden;
+  padding: 0;
+}
+.chat-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .chat-msg.agent .chat-avatar { background: color-mix(in srgb, var(--accent) 22%, #efe8d6); }
 .chat-msg.seller .chat-avatar { background: #fff; }
@@ -4054,8 +4141,32 @@ html[data-theme='purple'] #chatInput::placeholder { color: #8b7bb8; }
 .chat-loc-fallback p { margin: 0; font-size: 0.88rem; color: var(--muted, #7a7468); }
 body.chat-loc-open { overflow: hidden; }
 
-/* End-chat button in header */
-.chat-head-actions { display: flex; align-items: center; gap: 8px; }
+/* End-chat / call-seller buttons in header */
+.chat-head-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.chat-call-seller-btn {
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, #fff);
+  color: var(--text, #3d3428);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 42vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.15s ease;
+}
+.chat-call-seller-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 22%, #fff);
+}
+.chat-call-seller-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.chat-call-seller-btn.hidden { display: none !important; }
 .chat-end-btn {
   border: 1px solid var(--border-soft, var(--border));
   background: color-mix(in srgb, var(--accent) 10%, transparent);

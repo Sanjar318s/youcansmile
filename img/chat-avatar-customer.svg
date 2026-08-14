@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Customer">
+  <defs>
+    <radialGradient id="bg" cx="42%" cy="32%" r="70%">
+      <stop offset="0%" stop-color="#fff4ea"/>
+      <stop offset="100%" stop-color="#f0d7c2"/>
+    </radialGradient>
+    <radialGradient id="face" cx="45%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#ffe4cf"/>
+      <stop offset="100%" stop-color="#f2c4a4"/>
+    </radialGradient>
+  </defs>
+  <circle cx="64" cy="64" r="64" fill="url(#bg)"/>
+  <ellipse cx="64" cy="70" rx="34" ry="32" fill="url(#face)"/>
+  <path d="M36 54 Q40 34 54 42" fill="#c48a5a"/>
+  <path d="M92 54 Q88 34 74 42" fill="#c48a5a"/>
+  <ellipse cx="64" cy="42" rx="28" ry="14" fill="#d4a06e"/>
+  <ellipse cx="48" cy="72" rx="7" ry="4" fill="#f0b7a4" opacity="0.55"/>
+  <ellipse cx="80" cy="72" rx="7" ry="4" fill="#f0b7a4" opacity="0.55"/>
+  <circle cx="52" cy="66" r="3.2" fill="#2c2c2c"/>
+  <circle cx="76" cy="66" r="3.2" fill="#2c2c2c"/>
+  <circle cx="53" cy="65" r="1" fill="#fff"/>
+  <circle cx="77" cy="65" r="1" fill="#fff"/>
+  <path d="M56 80 Q64 88 72 80" fill="none" stroke="#b86b55" stroke-width="2.6" stroke-linecap="round"/>
+</svg>

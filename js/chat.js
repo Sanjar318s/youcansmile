@@ -48,9 +48,9 @@ const Chat = (() => {
   let orderProduct = null;
 
   const AVATARS = {
-    customer: '🙂',
-    agent: '🤖',
-    seller: '💬',
+    customer: '<img src="img/chat-avatar-customer.svg" alt="" width="34" height="34" decoding="async"/>',
+    agent: '<img src="img/chat-avatar-agent.svg" alt="" width="34" height="34" decoding="async"/>',
+    seller: '<img src="img/chat-avatar-seller.svg" alt="" width="34" height="34" decoding="async"/>',
   };
 
   function escId(id) {
@@ -99,6 +99,20 @@ const Chat = (() => {
     else if (sellerConnected) text = I18n.t('chat_status_seller');
     else if (needsSeller) text = I18n.t('chat_status_seller_wait');
     if (label) label.textContent = text;
+    const callBtn = root?.querySelector('#chatCallSellerBtn');
+    if (callBtn) {
+      callBtn.classList.toggle('hidden', !!sellerConnected);
+      callBtn.disabled = !!needsSeller && !sellerConnected;
+    }
+  }
+
+  async function callSeller() {
+    if (!me) {
+      showLoginHint();
+      return;
+    }
+    if (sellerConnected) return;
+    await sendText(I18n.t('chat_call_seller_msg') || 'позвать продавца');
   }
 
   function setPanelOpen(open) {
@@ -1470,7 +1484,7 @@ const Chat = (() => {
       <div class="chat-panel hidden" id="chatPanel">
         <div class="chat-head">
           <div class="chat-head-main">
-            <div class="chat-head-avatar" aria-hidden="true">🛍️</div>
+            <div class="chat-head-avatar" aria-hidden="true"><img src="img/chat-avatar-shop.svg" alt="" width="36" height="36" decoding="async"/></div>
             <div class="chat-head-text">
               <b data-i18n="chat_title">${I18n.t('chat_title')}</b>
               <div class="chat-head-status" id="chatHeadStatus">
@@ -1480,6 +1494,7 @@ const Chat = (() => {
             </div>
           </div>
           <div class="chat-head-actions">
+            <button type="button" class="chat-call-seller-btn" id="chatCallSellerBtn" title="${I18n.t('chat_call_seller')}">${I18n.t('chat_call_seller')}</button>
             <button type="button" class="chat-end-btn hidden" id="chatEndBtn" title="${I18n.t('chat_end_btn')}">${I18n.t('chat_end_btn')}</button>
             <button type="button" class="icon-btn chat-close" id="chatClose" aria-label="close">×</button>
           </div>
@@ -1591,6 +1606,9 @@ const Chat = (() => {
     });
     root.querySelector('#chatClose').addEventListener('click', () => {
       setPanelOpen(false);
+    });
+    root.querySelector('#chatCallSellerBtn')?.addEventListener('click', () => {
+      callSeller().catch(() => UI.toast(I18n.t('chat_send_fail')));
     });
     root.querySelector('#chatSendBtn').addEventListener('click', () => sendText());
     inputEl.addEventListener('input', syncActionBtn);

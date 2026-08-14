@@ -406,12 +406,31 @@ const UI = (() => {
           ? `<span class="badge-stock new">New</span>`
           : '';
     const info = ratingInfo || { avg: 0, count: 0 };
-    const img = (Array.isArray(p.images) && p.images[0]) || 'img/logo-ycs.png';
+    let imgs = (Array.isArray(p.images) ? p.images : []).filter(Boolean);
+    if (!imgs.length) imgs.push('img/logo-ycs.png');
+    const multi = imgs.length > 1;
+    const title = escapeHtml(I18n.txt(p.title));
+    const slides = imgs
+      .slice(0, 8)
+      .map(
+        (src, i) =>
+          `<img src="${escapeHtml(src)}" alt="${title}" loading="lazy"${i ? ' aria-hidden="true"' : ''}/>`
+      )
+      .join('');
+    const dots = multi
+      ? `<span class="card-slide-dots" aria-hidden="true">${imgs
+          .slice(0, 8)
+          .map((_, i) => `<i class="${i === 0 ? 'on' : ''}"></i>`)
+          .join('')}</span>`
+      : '';
     return `
       <article class="card">
-        <a class="card-img" href="product.html?id=${p.id}">
+        <a class="card-img${multi ? ' has-slides' : ''}" href="product.html?id=${p.id}"${multi ? ` data-slide-count="${Math.min(8, imgs.length)}"` : ''}>
           ${stockBadge}
-          <img src="${img}" alt="${escapeHtml(I18n.txt(p.title))}" loading="lazy"/>
+          <div class="card-slides-viewport">
+            <div class="card-slides">${slides}</div>
+          </div>
+          ${dots}
         </a>
         <button class="card-fav ${fav ? 'active' : ''}" data-fav="${p.id}" aria-label="fav">
           ${
@@ -422,7 +441,7 @@ const UI = (() => {
         </button>
         <div class="card-body">
           ${ratingStars(info.avg, info.count)}
-          <a class="card-title" href="product.html?id=${p.id}">${escapeHtml(I18n.txt(p.title))}</a>
+          <a class="card-title" href="product.html?id=${p.id}">${title}</a>
           <div class="card-price">
             <b>${Store.formatPrice(p.price, s)}</b>
             ${p.oldPrice ? `<s>${Store.formatPrice(p.oldPrice, s)}</s>` : ''}
@@ -439,6 +458,53 @@ const UI = (() => {
       </article>`;
   }
 
+  function startCardSlides(root) {
+    if (!root) return;
+    root.querySelectorAll('.card-img.has-slides').forEach((el) => {
+      if (el.dataset.slideBound === '1') return;
+      el.dataset.slideBound = '1';
+      const track = el.querySelector('.card-slides');
+      const imgs = track ? Array.from(track.querySelectorAll('img')) : [];
+      const dots = Array.from(el.querySelectorAll('.card-slide-dots i'));
+      if (imgs.length < 2 || !track) return;
+      let idx = 0;
+      let timer = null;
+      const go = (n) => {
+        idx = ((n % imgs.length) + imgs.length) % imgs.length;
+        track.style.transform = `translateX(-${idx * 100}%)`;
+        dots.forEach((d, di) => d.classList.toggle('on', di === idx));
+      };
+      const stop = () => {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      };
+      const play = () => {
+        stop();
+        timer = setInterval(() => go(idx + 1), 3400);
+      };
+      el.addEventListener('mouseenter', stop);
+      el.addEventListener('mouseleave', play);
+      el.addEventListener('focusin', stop);
+      el.addEventListener('focusout', play);
+      if (typeof IntersectionObserver !== 'undefined') {
+        const io = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) play();
+              else stop();
+            });
+          },
+          { threshold: 0.4 }
+        );
+        io.observe(el);
+      } else {
+        play();
+      }
+    });
+  }
+
   async function renderGrid(container, products, currency) {
     if (!container) return;
     let ratings = {};
@@ -452,6 +518,10 @@ const UI = (() => {
       ? (await Promise.all(list.map((p) => cardHTML(p, currency, ratings[p.id])))).join('')
       : '';
     bindCardEvents(container);
+    startCardSlides(container);
+    if (window.YCSReveal && typeof window.YCSReveal.scan === 'function') {
+      window.YCSReveal.scan(container);
+    }
   }
 
   function bindCardEvents(container) {
@@ -602,6 +672,7 @@ const UI = (() => {
     renderFooter,
     cardHTML,
     renderGrid,
+    startCardSlides,
     bindCardEvents,
     toast,
     syncCounts,
