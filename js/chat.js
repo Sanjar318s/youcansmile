@@ -40,6 +40,9 @@ const Chat = (() => {
   let statusTyping = false;
   let lastProducts = [];
   let lastProductId = null;
+  let lastSuggestedQty = null;
+  let pendingCartKey = null;
+  const cartAppliedIds = new Set();
   let welcomed = false;
   let settingsCache = null;
   let orderProduct = null;
@@ -167,11 +170,56 @@ const Chat = (() => {
         }
       }
       const products = payload && Array.isArray(payload.products) ? payload.products : payload ? [payload] : [];
+      if (payload && payload.suggestedQty) {
+        lastSuggestedQty = Math.max(1, Number(payload.suggestedQty) || 1);
+      }
       products.forEach((p) => {
         if (!p || !p.id) return;
         lastProducts = lastProducts.filter((x) => x.id !== p.id).concat([p]);
         lastProductId = p.id;
       });
+    });
+  }
+
+  function parsePayload(raw) {
+    let payload = raw;
+    if (typeof payload === 'string') {
+      try {
+        payload = JSON.parse(payload);
+      } catch (_) {
+        payload = null;
+      }
+    }
+    return payload;
+  }
+
+  function cartKey(pid, qty) {
+    return `${pid}:${Math.max(1, Number(qty) || 1)}`;
+  }
+
+  function applyCartActionsFromMessages(messages) {
+    (messages || []).forEach((m) => {
+      if (!m || (m.author !== 'agent' && m.type !== 'product')) return;
+      const payload = parsePayload(m.payload);
+      if (!payload || payload.action !== 'add_to_cart') return;
+      if (m.id && cartAppliedIds.has(m.id)) return;
+      const products = Array.isArray(payload.products) ? payload.products : payload.id ? [payload] : [];
+      const p = products[0];
+      if (!p || !p.id) return;
+      const qty = Math.max(1, Number(payload.suggestedQty) || lastSuggestedQty || 1);
+      const key = cartKey(p.id, qty);
+      if (m.id) cartAppliedIds.add(m.id);
+      lastProductId = p.id;
+      lastSuggestedQty = qty;
+      if (pendingCartKey === key) {
+        pendingCartKey = null;
+        return;
+      }
+      if (typeof Store !== 'undefined' && Store.addToCart) {
+        Store.addToCart(p.id, qty);
+        if (UI.toast) UI.toast(I18n.t('toast_cart_ok'));
+        if (UI.syncCounts) UI.syncCounts();
+      }
     });
   }
 
@@ -246,6 +294,9 @@ const Chat = (() => {
       }
     }
     const products = payload && Array.isArray(payload.products) ? payload.products : payload ? [payload] : [];
+    if (payload && payload.suggestedQty) {
+      lastSuggestedQty = Math.max(1, Number(payload.suggestedQty) || 1);
+    }
     const cards = products.slice(0, 3).map(productCardHTML).join('');
     const reply = m.replyToId
       ? `<div class="chat-reply-ref">${I18n.t('chat_reply')} #${escape(String(m.replyToId).slice(-6))}</div>`
@@ -376,6 +427,8 @@ const Chat = (() => {
     bindVoicePlayers(listEl);
     hideQuickIfNeeded();
     rememberProductsFromMessages(incoming);
+    // Only live messages — don't re-add cart on history reload
+    if (!replace) applyCartActionsFromMessages(incoming);
     const replyFromStaff = incoming.some((m) => m.author === 'agent' || m.author === 'seller');
     if (replyFromStaff && !replace && panel && !panel.classList.contains('hidden')) {
       playReplySound();
@@ -391,6 +444,8 @@ const Chat = (() => {
     el.outerHTML = renderMessage(realMsg);
     bindVoicePlayers(listEl);
     if (realMsg.createdAt > lastTs) lastTs = realMsg.createdAt;
+    rememberProductsFromMessages([realMsg]);
+    applyCartActionsFromMessages([realMsg]);
   }
 
   function removeMessageNode(id) {
@@ -509,6 +564,14 @@ const Chat = (() => {
       syncActionBtn();
       openOrderSheet(lastProductId);
       return;
+    }
+    const cartExplicit = /в\s*к[ао]рзин|добав(ь|ить).*к[ао]рзин|add(\s+it)?\s+to\s+cart|savatga/i.test(text);
+    if (cartExplicit && lastProductId && typeof Store !== 'undefined' && Store.addToCart) {
+      const qty = Math.max(1, Number(lastSuggestedQty) || 1);
+      pendingCartKey = cartKey(lastProductId, qty);
+      Store.addToCart(lastProductId, qty);
+      if (UI.toast) UI.toast(I18n.t('toast_cart_ok'));
+      if (UI.syncCounts) UI.syncCounts();
     }
     const optimistic = {
       id: 'tmp_' + Date.now().toString(36),
@@ -1136,6 +1199,7 @@ const Chat = (() => {
     }
     orderProduct = p;
     lastProductId = p.id;
+    const qtyPrefill = Math.max(1, Number(lastSuggestedQty) || 1);
     settingsCache = settingsCache || (await Api.getSettings().catch(() => ({})));
     const s = settingsCache || {};
     const points = Array.isArray(s.pickupPoints) ? s.pickupPoints : [];
@@ -1170,7 +1234,7 @@ const Chat = (() => {
       </div>
         <div class="field">
         <label>${escape(I18n.t('chat_order_qty'))}</label>
-        <input id="chatOrdQty" type="number" min="1" step="1" value="1"/>
+        <input id="chatOrdQty" type="number" min="1" step="1" value="${qtyPrefill}"/>
       </div>
       <div class="field">
         <label>${escape(I18n.t('fulfill_title'))}</label>
@@ -1369,7 +1433,7 @@ const Chat = (() => {
         const act = pbtn.dataset.act;
         if (!id) return;
         if (act === 'cart') {
-          Store.addToCart(id, 1);
+          Store.addToCart(id, Math.max(1, Number(lastSuggestedQty) || 1));
           UI.toast(I18n.t('toast_cart_ok'));
           if (UI.syncCounts) UI.syncCounts();
         } else if (act === 'buy') {
