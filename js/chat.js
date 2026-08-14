@@ -1483,20 +1483,22 @@ const Chat = (() => {
       </button>
       <div class="chat-panel hidden" id="chatPanel">
         <div class="chat-head">
-          <div class="chat-head-main">
-            <div class="chat-head-avatar" aria-hidden="true"><img src="img/chat-avatar-shop.svg" alt="" width="36" height="36" decoding="async"/></div>
-            <div class="chat-head-text">
-              <b data-i18n="chat_title">${I18n.t('chat_title')}</b>
-              <div class="chat-head-status" id="chatHeadStatus">
-                <span class="dot" aria-hidden="true"></span>
-                <span class="label">${I18n.t('chat_status_ai')}</span>
+          <div class="chat-head-top">
+            <div class="chat-head-main">
+              <div class="chat-head-avatar" aria-hidden="true"><img src="img/chat-avatar-shop.svg" alt="" width="36" height="36" decoding="async"/></div>
+              <div class="chat-head-text">
+                <b data-i18n="chat_title">${I18n.t('chat_title')}</b>
+                <div class="chat-head-status" id="chatHeadStatus">
+                  <span class="dot" aria-hidden="true"></span>
+                  <span class="label">${I18n.t('chat_status_ai')}</span>
+                </div>
               </div>
             </div>
+            <button type="button" class="icon-btn chat-close" id="chatClose" aria-label="close">×</button>
           </div>
           <div class="chat-head-actions">
             <button type="button" class="chat-call-seller-btn" id="chatCallSellerBtn" title="${I18n.t('chat_call_seller')}">${I18n.t('chat_call_seller')}</button>
             <button type="button" class="chat-end-btn hidden" id="chatEndBtn" title="${I18n.t('chat_end_btn')}">${I18n.t('chat_end_btn')}</button>
-            <button type="button" class="icon-btn chat-close" id="chatClose" aria-label="close">×</button>
           </div>
         </div>
         <div class="chat-login-hint hidden">

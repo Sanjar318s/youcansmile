@@ -464,30 +464,127 @@ const UI = (() => {
       if (el.dataset.slideBound === '1') return;
       el.dataset.slideBound = '1';
       const track = el.querySelector('.card-slides');
+      const viewport = el.querySelector('.card-slides-viewport') || el;
       const imgs = track ? Array.from(track.querySelectorAll('img')) : [];
-      const dots = Array.from(el.querySelectorAll('.card-slide-dots i'));
+      const dotsWrap = el.querySelector('.card-slide-dots');
+      const dots = dotsWrap ? Array.from(dotsWrap.querySelectorAll('i')) : [];
       if (imgs.length < 2 || !track) return;
+
       let idx = 0;
       let timer = null;
-      const go = (n) => {
+      let dragging = false;
+      let moved = false;
+      let startX = 0;
+      let startY = 0;
+      let baseX = 0;
+      let width = 1;
+
+      const go = (n, animate) => {
         idx = ((n % imgs.length) + imgs.length) % imgs.length;
+        track.style.transition = animate === false ? 'none' : '';
         track.style.transform = `translateX(-${idx * 100}%)`;
         dots.forEach((d, di) => d.classList.toggle('on', di === idx));
       };
+
       const stop = () => {
         if (timer) {
           clearInterval(timer);
           timer = null;
         }
       };
+
       const play = () => {
         stop();
-        timer = setInterval(() => go(idx + 1), 3400);
+        timer = setInterval(() => go(idx + 1), 4000);
       };
+
+      const onPointerDown = (e) => {
+        if (e.button != null && e.button !== 0) return;
+        dragging = true;
+        moved = false;
+        stop();
+        width = viewport.clientWidth || el.clientWidth || 1;
+        startX = e.clientX;
+        startY = e.clientY;
+        baseX = -idx * width;
+        track.style.transition = 'none';
+        try {
+          el.setPointerCapture(e.pointerId);
+        } catch (_) {}
+      };
+
+      const onPointerMove = (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        if (!moved && Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        if (!moved && Math.abs(dy) > Math.abs(dx)) {
+          // vertical scroll — cancel horizontal drag
+          dragging = false;
+          track.style.transition = '';
+          go(idx, true);
+          return;
+        }
+        moved = true;
+        e.preventDefault();
+        const maxDrag = width * 0.85;
+        const clamped = Math.max(-maxDrag, Math.min(maxDrag, dx));
+        track.style.transform = `translateX(${baseX + clamped}px)`;
+      };
+
+      const onPointerUp = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        const dx = e.clientX - startX;
+        track.style.transition = '';
+        if (moved && Math.abs(dx) > Math.min(48, width * 0.18)) {
+          go(dx < 0 ? idx + 1 : idx - 1, true);
+        } else {
+          go(idx, true);
+        }
+        play();
+      };
+
+      // Block navigation to product if user swiped the gallery
+      el.addEventListener(
+        'click',
+        (e) => {
+          if (moved) {
+            e.preventDefault();
+            e.stopPropagation();
+            moved = false;
+          }
+        },
+        true
+      );
+
+      viewport.addEventListener('pointerdown', onPointerDown);
+      viewport.addEventListener('pointermove', onPointerMove);
+      viewport.addEventListener('pointerup', onPointerUp);
+      viewport.addEventListener('pointercancel', onPointerUp);
+      viewport.addEventListener('pointerleave', (e) => {
+        if (dragging) onPointerUp(e);
+      });
+
+      if (dotsWrap) {
+        dotsWrap.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const dot = e.target.closest('i');
+          if (!dot) return;
+          const di = dots.indexOf(dot);
+          if (di < 0) return;
+          stop();
+          go(di, true);
+          play();
+        });
+      }
+
       el.addEventListener('mouseenter', stop);
-      el.addEventListener('mouseleave', play);
-      el.addEventListener('focusin', stop);
-      el.addEventListener('focusout', play);
+      el.addEventListener('mouseleave', () => {
+        if (!dragging) play();
+      });
+
       if (typeof IntersectionObserver !== 'undefined') {
         const io = new IntersectionObserver(
           (entries) => {
@@ -496,7 +593,7 @@ const UI = (() => {
               else stop();
             });
           },
-          { threshold: 0.4 }
+          { threshold: 0.35 }
         );
         io.observe(el);
       } else {
