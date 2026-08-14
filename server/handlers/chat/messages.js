@@ -104,6 +104,11 @@ module.exports = async (req, res) => {
           };
           await saveMessage(agentMsg);
           out.push(agentMsg);
+          // AI handled it — don't keep "seller connecting" status
+          if (needsSeller && !connected) {
+            await setNeedsSeller(thread.id, false);
+            needsSeller = false;
+          }
           try {
             await notifyUser(me.id, {
               title: 'YouCanSmile',
@@ -121,12 +126,24 @@ module.exports = async (req, res) => {
             threadId: thread.id,
             author: 'agent',
             type: 'text',
-            text: 'Передаю ваш вопрос продавцу. Он подключится и ответит здесь.',
+            text: 'Подключаю продавца — он ответит здесь. Пока можете уточнить детали заказа или выбрать товар в каталоге.',
             createdAt: Date.now(),
           };
           await saveMessage(escMsg);
           out.push(escMsg);
           await notifySellerRequest(toTelegramMsg(msg), customer, thread.id, orderId);
+        } else {
+          // AI couldn't answer and didn't escalate — still help, don't bother seller
+          const tip = {
+            id: uid('m'),
+            threadId: thread.id,
+            author: 'agent',
+            type: 'text',
+            text: 'Могу помочь с товарами, ценами, доставкой и оплатой. Напишите название изделия или «что есть в наличии». Живого продавца — «позвать продавца».',
+            createdAt: Date.now(),
+          };
+          await saveMessage(tip);
+          out.push(tip);
         }
       }
     } else {

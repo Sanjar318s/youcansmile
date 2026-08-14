@@ -12,7 +12,11 @@ module.exports = async (req, res) => {
     const since = req.query.since || 0;
     const messages = await getMessages(thread.id, since);
     return json(res, 200, {
-      thread: { id: thread.id, needsSeller: !!thread.needs_seller },
+      thread: {
+        id: thread.id,
+        needsSeller: !!Number(thread.needs_seller),
+        sellerConnected: !!Number(thread.seller_connected),
+      },
       messages,
     });
   } catch (e) {

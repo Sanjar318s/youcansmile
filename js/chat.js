@@ -35,6 +35,14 @@ const Chat = (() => {
   let delegated = false;
   let closeRating = 0;
   let closeSubmitting = false;
+  let needsSeller = false;
+  let sellerConnected = false;
+  let statusTyping = false;
+  let lastProducts = [];
+  let lastProductId = null;
+  let welcomed = false;
+  let settingsCache = null;
+  let orderProduct = null;
 
   const AVATARS = {
     customer: '🙂',
@@ -56,6 +64,115 @@ const Chat = (() => {
     if (author === 'agent') return I18n.t('chat_agent');
     if (author === 'seller') return I18n.t('chat_seller');
     return me?.name || I18n.t('review_guest');
+  }
+
+  function fmtMsgClock(ts) {
+    const d = new Date(Number(ts) || Date.now());
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString(I18n.lang === 'en' ? 'en-GB' : I18n.lang === 'uz' ? 'uz-UZ' : 'ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  function msgMetaHTML(m, mine) {
+    const time = fmtMsgClock(m.createdAt);
+    let ticks = '';
+    if (mine) {
+      if (m._failed) ticks = `<span class="chat-ticks is-failed" title="fail">!</span>`;
+      else if (m._pending) ticks = `<span class="chat-ticks">✓</span>`;
+      else ticks = `<span class="chat-ticks">✓✓</span>`;
+    }
+    return `<div class="chat-msg-meta"><span>${escape(time)}</span>${ticks}</div>`;
+  }
+
+  function updateHeadStatus() {
+    const el = root?.querySelector('#chatHeadStatus');
+    if (!el) return;
+    const label = el.querySelector('.label');
+    el.classList.toggle('is-typing', !!statusTyping);
+    let text = I18n.t('chat_status_ai');
+    if (statusTyping) text = I18n.t('chat_status_typing');
+    else if (sellerConnected) text = I18n.t('chat_status_seller');
+    else if (needsSeller) text = I18n.t('chat_status_seller_wait');
+    if (label) label.textContent = text;
+  }
+
+  function setPanelOpen(open) {
+    if (!panel || !root) return;
+    panel.classList.toggle('hidden', !open);
+    root.classList.toggle('is-open', !!open);
+    if (!open) {
+      stopPoll();
+      closeAttachMenu();
+      statusTyping = false;
+      updateHeadStatus();
+    }
+  }
+
+  function playReplySound() {
+    try {
+      if (localStorage.getItem('ycs_chat_mute') === '1') return;
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 880;
+      g.gain.value = 0.0001;
+      o.connect(g);
+      g.connect(ctx.destination);
+      const now = ctx.currentTime;
+      g.gain.exponentialRampToValueAtTime(0.05, now + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      o.start(now);
+      o.stop(now + 0.2);
+      setTimeout(() => ctx.close().catch(() => {}), 300);
+      try {
+        navigator.vibrate?.(12);
+      } catch (_) {}
+    } catch (_) {}
+  }
+
+  function openLightbox(src) {
+    if (!src || !root) return;
+    let box = root.querySelector('#chatLightbox');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'chatLightbox';
+      box.className = 'chat-lightbox hidden';
+      box.innerHTML = `<button type="button" class="chat-lightbox-close" aria-label="close">×</button><img alt=""/>`;
+      root.appendChild(box);
+      box.addEventListener('click', (e) => {
+        if (e.target === box || e.target.closest('.chat-lightbox-close')) {
+          box.classList.add('hidden');
+          box.querySelector('img').src = '';
+        }
+      });
+    }
+    box.querySelector('img').src = src;
+    box.classList.remove('hidden');
+  }
+
+  function rememberProductsFromMessages(messages) {
+    (messages || []).forEach((m) => {
+      if (m.type !== 'product') return;
+      let payload = m.payload;
+      if (typeof payload === 'string') {
+        try {
+          payload = JSON.parse(payload);
+        } catch (_) {
+          payload = null;
+        }
+      }
+      const products = payload && Array.isArray(payload.products) ? payload.products : payload ? [payload] : [];
+      products.forEach((p) => {
+        if (!p || !p.id) return;
+        lastProducts = lastProducts.filter((x) => x.id !== p.id).concat([p]);
+        lastProductId = p.id;
+      });
+    });
   }
 
   function escape(s) {
@@ -102,20 +219,18 @@ const Chat = (() => {
   function productCardHTML(p) {
     const img = p.image || 'img/logo-ycs.png';
     const price = typeof Store !== 'undefined' ? Store.formatPrice(p.price) : `${p.price} UZS`;
-    const stockCls = p.inStock ? 'ok' : 'no';
-    const stockLabel = p.inStock ? I18n.t('chat_prod_instock') : I18n.t('chat_prod_outstock');
+    const stockCls = p.inStock === false ? 'no' : 'ok';
+    const stockLabel = p.inStock === false ? I18n.t('chat_prod_outstock') : I18n.t('chat_prod_instock');
     return `
       <div class="chat-prod" data-pid="${escape(p.id)}">
-        <img class="chat-prod-img" src="${escape(img)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='img/logo-ycs.png'"/>
+        <img class="chat-prod-img" src="${escape(img)}" alt="" loading="lazy" data-lightbox="${escape(img)}" onerror="this.onerror=null;this.src='img/logo-ycs.png'"/>
         <div class="chat-prod-info">
           <div class="chat-prod-title">${escape(p.title)}</div>
-          ${p.category ? `<div class="chat-prod-cat">${escape(p.category)}</div>` : ''}
           <div class="chat-prod-price">${escape(String(price))}</div>
           <span class="chat-prod-stock ${stockCls}">${escape(stockLabel)}</span>
         </div>
         <div class="chat-prod-actions">
           <button type="button" class="chat-prod-btn" data-act="cart" data-pid="${escape(p.id)}">${escape(I18n.t('chat_prod_cart'))}</button>
-          <button type="button" class="chat-prod-btn" data-act="fav" data-pid="${escape(p.id)}">${escape(I18n.t('chat_prod_fav'))}</button>
           <button type="button" class="chat-prod-btn primary" data-act="buy" data-pid="${escape(p.id)}">${escape(I18n.t('chat_prod_buy'))}</button>
         </div>
       </div>`;
@@ -143,6 +258,7 @@ const Chat = (() => {
           ${reply}
           ${m.text ? `<p>${escape(m.text)}</p>` : ''}
           <div class="chat-prod-list">${cards}</div>
+          ${msgMetaHTML(m, false)}
         </div>
       </div>`;
   }
@@ -169,7 +285,7 @@ const Chat = (() => {
       : '';
     let body = '';
     if (m.type === 'photo' && m.mediaUrl) {
-      body = `<a href="${escape(m.mediaUrl)}" target="_blank" rel="noopener"><img class="chat-img" src="${escape(m.mediaUrl)}" alt="" loading="lazy"/></a>`;
+      body = `<img class="chat-img" src="${escape(m.mediaUrl)}" alt="" loading="lazy" data-lightbox="${escape(m.mediaUrl)}"/>`;
       if (m.text) body += `<p>${escape(m.text)}</p>`;
     } else if (m.type === 'voice' && m.mediaUrl) {
       body = voiceHTML(m.mediaUrl, m._durationLabel);
@@ -187,6 +303,7 @@ const Chat = (() => {
           <div class="chat-author">${escape(authorLabel(m.author))}</div>
           ${reply}
           ${body}
+          ${msgMetaHTML(m, mine)}
           <button type="button" class="chat-reply-btn" data-reply="${escape(m.id)}" title="${I18n.t('chat_reply')}">↩</button>
         </div>
       </div>`;
@@ -246,8 +363,10 @@ const Chat = (() => {
     if (replace) listEl.innerHTML = '';
     const frag = document.createDocumentFragment();
     const tmp = document.createElement('div');
+    const incoming = [];
     messages.forEach((m) => {
       if (findMsgEl(m.id)) return;
+      incoming.push(m);
       tmp.innerHTML = renderMessage(m);
       while (tmp.firstChild) frag.appendChild(tmp.firstChild);
       if (m.createdAt > lastTs) lastTs = m.createdAt;
@@ -256,6 +375,11 @@ const Chat = (() => {
     listEl.scrollTop = listEl.scrollHeight;
     bindVoicePlayers(listEl);
     hideQuickIfNeeded();
+    rememberProductsFromMessages(incoming);
+    const replyFromStaff = incoming.some((m) => m.author === 'agent' || m.author === 'seller');
+    if (replyFromStaff && !replace && panel && !panel.classList.contains('hidden')) {
+      playReplySound();
+    }
   }
 
   function replaceMessageNode(tempId, realMsg) {
@@ -293,9 +417,40 @@ const Chat = (() => {
     if (!me || me.role !== 'customer') return;
     try {
       const data = await Api.getChatThread(full ? 0 : lastTs);
+      if (data.thread) {
+        needsSeller = !!data.thread.needsSeller;
+        sellerConnected = !!data.thread.sellerConnected;
+        updateHeadStatus();
+      }
       if (full) lastTs = 0;
       appendMessages(data.messages || [], full);
+      if (full) maybeWelcome();
     } catch (_) { /* offline */ }
+  }
+
+  function maybeWelcome() {
+    if (welcomed || !me || !listEl) return;
+    if (listEl.querySelector('.chat-msg')) {
+      welcomed = true;
+      return;
+    }
+    welcomed = true;
+    const name = (me.name || '').trim().split(/\s+/)[0];
+    const text = name
+      ? I18n.t('chat_welcome_named').replace('{name}', name)
+      : I18n.t('chat_welcome');
+    appendMessages(
+      [
+        {
+          id: 'welcome_local',
+          author: 'agent',
+          type: 'text',
+          text,
+          createdAt: Date.now(),
+        },
+      ],
+      false
+    );
   }
 
   function startPoll() {
@@ -314,10 +469,15 @@ const Chat = (() => {
     if (!me) return null;
     const tempId = optimistic?.id;
     const typingId = 'typing_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+    statusTyping = true;
+    updateHeadStatus();
     appendMessages([{ id: typingId, author: 'agent', type: 'typing', text: '', createdAt: 0 }], false);
     try {
       const res = await Api.sendChatMessage(payload);
       removeMessageNode(typingId);
+      statusTyping = false;
+      if (typeof res.needsSeller === 'boolean') needsSeller = res.needsSeller;
+      updateHeadStatus();
       const msgs = res.messages || [];
       if (tempId && msgs[0]) {
         replaceMessageNode(tempId, msgs[0]);
@@ -330,6 +490,8 @@ const Chat = (() => {
       return res;
     } catch (err) {
       removeMessageNode(typingId);
+      statusTyping = false;
+      updateHeadStatus();
       if (tempId) {
         const el = findMsgEl(tempId);
         if (el) el.classList.add('failed');
@@ -342,6 +504,12 @@ const Chat = (() => {
   async function sendText(preset, orderId) {
     const text = (preset != null ? String(preset) : inputEl.value).trim();
     if (!text) return;
+    if (/^(оформить|оформи|купить сейчас|buy now|checkout|rasmiylashtir)/i.test(text) && lastProductId) {
+      if (inputEl) inputEl.value = '';
+      syncActionBtn();
+      openOrderSheet(lastProductId);
+      return;
+    }
     const optimistic = {
       id: 'tmp_' + Date.now().toString(36),
       author: 'customer',
@@ -370,52 +538,35 @@ const Chat = (() => {
     wrap.innerHTML = `
       <div class="chat-quick-label">${escape(I18n.t('chat_quick_title'))}</div>
       <div class="chat-quick-row">
-        <button type="button" class="chat-quick-nav prev" aria-label="${escape(I18n.t('chat_quick_prev'))}">‹</button>
-        <div class="chat-quick-chips">
+        <div class="chat-quick-chips" id="chatQuickChips">
           ${quickKeys().map((k) => `<button type="button" class="chat-quick-chip" data-quick="${escape(k)}">${escape(I18n.t(k))}</button>`).join('')}
         </div>
-        <button type="button" class="chat-quick-nav next" aria-label="${escape(I18n.t('chat_quick_next'))}">›</button>
       </div>`;
-    bindQuickNav(wrap);
+    bindQuickSwipe(wrap.querySelector('.chat-quick-chips'));
   }
 
-  function bindQuickNav(wrap) {
-    const chips = wrap.querySelector('.chat-quick-chips');
-    const prev = wrap.querySelector('.chat-quick-nav.prev');
-    const next = wrap.querySelector('.chat-quick-nav.next');
-    if (!chips || !prev || !next) return;
-
-    const syncNav = () => {
-      const max = Math.max(0, chips.scrollWidth - chips.clientWidth);
-      const atStart = chips.scrollLeft <= 2;
-      const atEnd = chips.scrollLeft >= max - 2;
-      const noScroll = max <= 2;
-      prev.disabled = noScroll || atStart;
-      next.disabled = noScroll || atEnd;
+  function bindQuickSwipe(chips) {
+    if (!chips || chips.dataset.swipeBound) return;
+    chips.dataset.swipeBound = '1';
+    let dragging = false;
+    let startX = 0;
+    let startScroll = 0;
+    chips.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      dragging = true;
+      startX = e.clientX;
+      startScroll = chips.scrollLeft;
+      chips.setPointerCapture?.(e.pointerId);
+    });
+    chips.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      chips.scrollLeft = startScroll - (e.clientX - startX);
+    });
+    const end = () => {
+      dragging = false;
     };
-
-    const scrollByPage = (dir) => {
-      const amount = Math.max(120, Math.floor(chips.clientWidth * 0.8));
-      chips.scrollBy({ left: dir * amount, behavior: 'smooth' });
-    };
-
-    prev.onclick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      scrollByPage(-1);
-    };
-    next.onclick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      scrollByPage(1);
-    };
-    chips.addEventListener('scroll', syncNav, { passive: true });
-    if (typeof ResizeObserver !== 'undefined') {
-      const ro = new ResizeObserver(syncNav);
-      ro.observe(chips);
-    }
-    requestAnimationFrame(syncNav);
-    setTimeout(syncNav, 80);
+    chips.addEventListener('pointerup', end);
+    chips.addEventListener('pointercancel', end);
   }
 
   function hideQuickIfNeeded() {
@@ -946,10 +1097,270 @@ const Chat = (() => {
     }
   }
 
+  function closeOrderSheet() {
+    const picker = document.getElementById('chatOrderPicker');
+    if (picker) picker.classList.add('hidden');
+    document.body.classList.remove('chat-order-open');
+    orderProduct = null;
+  }
+
+  async function resolveProduct(pid) {
+    let p = lastProducts.find((x) => x.id === pid);
+    if (p && p.price != null) return p;
+    try {
+      const full = await Api.getProduct(pid);
+      if (full) {
+        p = {
+          id: full.id,
+          title: I18n.txt(full.title) || full.title?.ru || pid,
+          price: full.price,
+          inStock: full.inStock !== false,
+          image: (full.images && full.images[0]) || 'img/logo-ycs.png',
+        };
+        lastProducts = lastProducts.filter((x) => x.id !== p.id).concat([p]);
+        return p;
+      }
+    } catch (_) {}
+    return p || null;
+  }
+
+  async function openOrderSheet(pid) {
+    if (!me) {
+      showLoginHint();
+      return;
+    }
+    const p = await resolveProduct(pid);
+    if (!p) {
+      UI.toast(I18n.t('chat_order_no_product'));
+      return;
+    }
+    orderProduct = p;
+    lastProductId = p.id;
+    settingsCache = settingsCache || (await Api.getSettings().catch(() => ({})));
+    const s = settingsCache || {};
+    const points = Array.isArray(s.pickupPoints) ? s.pickupPoints : [];
+    const picker = document.getElementById('chatOrderPicker') || root?.querySelector('#chatOrderPicker');
+    const body = document.getElementById('chatOrderBody') || root?.querySelector('#chatOrderBody');
+    if (!picker || !body) return;
+    if (picker.parentElement !== document.body) {
+      document.body.appendChild(picker);
+    }
+
+    const price = typeof Store !== 'undefined' ? Store.formatPrice(p.price, s) : `${p.price} UZS`;
+    const cardHint =
+      I18n.txt(s.cardRequisites) ||
+      `${s.cardRecipient || ''}\n${s.cardNumber || ''}`.trim() ||
+      I18n.t('pay_requisites');
+
+    body.innerHTML = `
+      <div class="chat-order-prod">
+        <img src="${escape(p.image || 'img/logo-ycs.png')}" alt=""/>
+        <div>
+          <div class="chat-prod-title">${escape(p.title)}</div>
+          <div class="chat-prod-price">${escape(String(price))}</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>${escape(I18n.t('order_name'))}</label>
+        <input id="chatOrdName" value="${escape(me.name || '')}" autocomplete="name"/>
+      </div>
+      <div class="field">
+        <label>${escape(I18n.t('order_phone'))}</label>
+        <input id="chatOrdPhone" value="${escape(me.phone || '')}" autocomplete="tel" inputmode="tel"/>
+      </div>
+        <div class="field">
+        <label>${escape(I18n.t('chat_order_qty'))}</label>
+        <input id="chatOrdQty" type="number" min="1" step="1" value="1"/>
+      </div>
+      <div class="field">
+        <label>${escape(I18n.t('fulfill_title'))}</label>
+        <div class="chat-order-row">
+          <label><input type="radio" name="chatFulfill" value="pickup" checked/> ${escape(I18n.t('fulfill_pickup'))}</label>
+          <label><input type="radio" name="chatFulfill" value="delivery"/> ${escape(I18n.t('fulfill_delivery'))}</label>
+        </div>
+      </div>
+      <div class="field" id="chatPickupField">
+        <label>${escape(I18n.t('map_pickup_point'))}</label>
+        <select id="chatOrdPickup">
+          ${
+            points.length
+              ? points
+                  .map(
+                    (pt) =>
+                      `<option value="${escape(pt.id)}">${escape(I18n.txt(pt.name) || pt.id)}</option>`
+                  )
+                  .join('')
+              : `<option value="">${escape(I18n.t('map_pickup_empty'))}</option>`
+          }
+        </select>
+      </div>
+      <div class="field hidden" id="chatAddrField">
+        <label>${escape(I18n.t('map_address_manual'))}</label>
+        <textarea id="chatOrdAddr" rows="2" placeholder="${escape(I18n.t('map_address_manual'))}"></textarea>
+      </div>
+      <div class="field">
+        <label>${escape(I18n.t('pay_title'))}</label>
+        <div class="chat-order-row">
+          <label><input type="radio" name="chatPay" value="card" checked/> ${escape(I18n.t('pay_card'))}</label>
+          <label id="chatPayCashLabel"><input type="radio" name="chatPay" value="cash"/> ${escape(I18n.t('pay_cash'))}</label>
+        </div>
+      </div>
+      <div id="chatCardBlock">
+        <p class="chat-order-card-hint">${escape(cardHint)}</p>
+        <div class="field">
+          <label>${escape(I18n.t('pay_attach_receipt'))} (${escape(I18n.t('chat_order_receipt_optional'))})</label>
+          <input type="file" accept="image/*" class="js-receipt-input" id="chatOrdReceipt"/>
+        </div>
+      </div>
+      <div class="chat-loc-picker-actions" style="margin-top:12px">
+        <button type="button" class="btn btn-ghost" id="chatOrdCancel">${escape(I18n.t('chat_loc_cancel'))}</button>
+        <button type="button" class="btn btn-primary" id="chatOrdConfirm">${escape(I18n.t('chat_order_confirm'))}</button>
+      </div>`;
+
+    const syncFulfill = () => {
+      const f = (body.querySelector('input[name="chatFulfill"]:checked') || {}).value || 'pickup';
+      body.querySelector('#chatPickupField')?.classList.toggle('hidden', f !== 'pickup');
+      body.querySelector('#chatAddrField')?.classList.toggle('hidden', f !== 'delivery');
+      const cashLabel = body.querySelector('#chatPayCashLabel');
+      if (cashLabel) {
+        cashLabel.style.display = f === 'pickup' ? '' : 'none';
+        if (f === 'delivery') {
+          const card = body.querySelector('input[name="chatPay"][value="card"]');
+          if (card) card.checked = true;
+        }
+      }
+      const pay = (body.querySelector('input[name="chatPay"]:checked') || {}).value || 'card';
+      body.querySelector('#chatCardBlock')?.classList.toggle('hidden', pay !== 'card');
+    };
+    body.querySelectorAll('input[name="chatFulfill"], input[name="chatPay"]').forEach((el) => {
+      el.addEventListener('change', syncFulfill);
+    });
+    syncFulfill();
+    body.querySelector('#chatOrdCancel')?.addEventListener('click', closeOrderSheet);
+    body.querySelector('#chatOrdConfirm')?.addEventListener('click', () => {
+      submitChatOrder().catch((err) => UI.toast(err?.message || I18n.t('chat_send_fail')));
+    });
+
+    picker.classList.remove('hidden');
+    document.body.classList.add('chat-order-open');
+  }
+
+  async function submitChatOrder() {
+    if (!orderProduct || !me) return;
+    const body = document.getElementById('chatOrderBody') || root?.querySelector('#chatOrderBody');
+    if (!body) return;
+    const name = body.querySelector('#chatOrdName')?.value.trim();
+    const phone = body.querySelector('#chatOrdPhone')?.value.trim();
+    const qty = Math.max(1, Number(body.querySelector('#chatOrdQty')?.value) || 1);
+    const fulfillment = (body.querySelector('input[name="chatFulfill"]:checked') || {}).value || 'pickup';
+    let payment = (body.querySelector('input[name="chatPay"]:checked') || {}).value || 'card';
+    const pickupId = body.querySelector('#chatOrdPickup')?.value || '';
+    const addressManual = body.querySelector('#chatOrdAddr')?.value.trim() || '';
+    const s = settingsCache || (await Api.getSettings().catch(() => ({})));
+    const points = Array.isArray(s.pickupPoints) ? s.pickupPoints : [];
+    const pt = points.find((p) => p.id === pickupId);
+
+    if (!name || !phone) {
+      UI.toast(I18n.t('order_required'));
+      return;
+    }
+    if (fulfillment === 'delivery' && payment === 'cash') {
+      payment = 'card';
+    }
+    if (fulfillment === 'pickup' && !pickupId) {
+      UI.toast(I18n.t('order_fulfillment_required'));
+      return;
+    }
+    if (fulfillment === 'delivery' && !addressManual) {
+      UI.toast(I18n.t('order_fulfillment_required'));
+      return;
+    }
+
+    let paymentReceipt = '';
+    if (payment === 'card' && typeof UI.getReceiptDataURL === 'function') {
+      paymentReceipt = await UI.getReceiptDataURL(body);
+    }
+
+    const title = orderProduct.title;
+    const price = Number(orderProduct.price) || 0;
+    const items = [{ productId: orderProduct.id, title, price, qty }];
+    const total = price * qty;
+    const address =
+      fulfillment === 'pickup' ? (pt ? I18n.txt(pt.address) : '') : addressManual;
+
+    const btn = body.querySelector('#chatOrdConfirm');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = I18n.t('chat_order_sending');
+    }
+
+    try {
+      const order = await Api.createOrder({
+        type: 'cart',
+        customerId: me.id,
+        fulfillment,
+        payment,
+        pickupPoint: fulfillment === 'pickup' ? pickupId : '',
+        coords: null,
+        paymentReceipt: paymentReceipt || '',
+        customer: {
+          name,
+          phone,
+          contactChannel: 'telegram',
+          contact: phone,
+          address,
+          note: I18n.t('chat_order_note_source'),
+        },
+        items,
+        total,
+        currency: 'UZS',
+        displayCurrency: Store.getDisplayCurrency ? Store.getDisplayCurrency() : 'UZS',
+        lang: I18n.lang,
+      });
+      closeOrderSheet();
+      const num = order.number || order.id;
+      const link = `order-status.html?id=${encodeURIComponent(order.id)}`;
+      appendMessages(
+        [
+          {
+            id: 'order_ok_' + Date.now().toString(36),
+            author: 'agent',
+            type: 'text',
+            text: I18n.t('chat_order_success').replace('{n}', String(num)),
+            createdAt: Date.now(),
+            _orderLink: link,
+          },
+        ],
+        false
+      );
+      const last = listEl?.querySelector('.chat-msg:last-child .chat-bubble');
+      if (last && link) {
+        const a = document.createElement('a');
+        a.href = link;
+        a.className = 'chat-order-ok-link';
+        a.textContent = I18n.t('chat_order_open_status');
+        last.appendChild(a);
+      }
+      UI.toast(I18n.t('chat_order_success_toast'));
+    } catch (err) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = I18n.t('chat_order_confirm');
+      }
+      throw err;
+    }
+  }
+
   function ensureDelegation() {
     if (delegated || !listEl) return;
     delegated = true;
     listEl.addEventListener('click', (e) => {
+      const lb = e.target.closest('[data-lightbox]');
+      if (lb && listEl.contains(lb)) {
+        e.preventDefault();
+        openLightbox(lb.getAttribute('data-lightbox') || lb.getAttribute('src'));
+        return;
+      }
       const pbtn = e.target.closest('[data-act]');
       if (pbtn && listEl.contains(pbtn)) {
         e.preventDefault();
@@ -961,14 +1372,8 @@ const Chat = (() => {
           Store.addToCart(id, 1);
           UI.toast(I18n.t('toast_cart_ok'));
           if (UI.syncCounts) UI.syncCounts();
-        } else if (act === 'fav') {
-          const added = Store.toggleFavorite(id);
-          UI.toast(added ? I18n.t('product_fav_added') : I18n.t('product_fav_removed'));
-          if (UI.syncCounts) UI.syncCounts();
         } else if (act === 'buy') {
-          Store.addToCart(id, 1);
-          if (UI.syncCounts) UI.syncCounts();
-          location.href = 'cart.html';
+          openOrderSheet(id);
         }
         return;
       }
@@ -1000,7 +1405,16 @@ const Chat = (() => {
       </button>
       <div class="chat-panel hidden" id="chatPanel">
         <div class="chat-head">
-          <b data-i18n="chat_title">${I18n.t('chat_title')}</b>
+          <div class="chat-head-main">
+            <div class="chat-head-avatar" aria-hidden="true">🛍️</div>
+            <div class="chat-head-text">
+              <b data-i18n="chat_title">${I18n.t('chat_title')}</b>
+              <div class="chat-head-status" id="chatHeadStatus">
+                <span class="dot" aria-hidden="true"></span>
+                <span class="label">${I18n.t('chat_status_ai')}</span>
+              </div>
+            </div>
+          </div>
           <div class="chat-head-actions">
             <button type="button" class="chat-end-btn hidden" id="chatEndBtn" title="${I18n.t('chat_end_btn')}">${I18n.t('chat_end_btn')}</button>
             <button type="button" class="icon-btn chat-close" id="chatClose" aria-label="close">×</button>
@@ -1022,7 +1436,7 @@ const Chat = (() => {
           </div>
           <div class="chat-tg-row">
             <div class="chat-attach-wrap">
-              <button type="button" class="chat-icon-btn" id="chatAttachBtn" title="${I18n.t('chat_attach')}" aria-label="${I18n.t('chat_attach')}">＋</button>
+              <button type="button" class="chat-icon-btn" id="chatAttachBtn" title="${I18n.t('chat_attach')}" aria-label="${I18n.t('chat_attach')}">📎</button>
               <div class="chat-attach-menu hidden" id="chatAttachMenu" role="menu">
                 <button type="button" role="menuitem" id="chatGalleryBtn">🖼 ${I18n.t('chat_gallery')}</button>
                 <button type="button" role="menuitem" id="chatCameraBtn">📷 ${I18n.t('chat_camera')}</button>
@@ -1075,6 +1489,16 @@ const Chat = (() => {
             </div>
           </div>
         </div>
+        <div class="chat-loc-picker hidden" id="chatOrderPicker" role="dialog" aria-modal="true" aria-label="${I18n.t('chat_order_title')}">
+          <div class="chat-loc-picker-backdrop" id="chatOrderBackdrop"></div>
+          <div class="chat-loc-picker-sheet chat-order-sheet">
+            <div class="chat-loc-picker-head">
+              <b>${I18n.t('chat_order_title')}</b>
+              <button type="button" class="icon-btn chat-close" id="chatOrderClose" aria-label="close">×</button>
+            </div>
+            <div class="chat-end-body" id="chatOrderBody"></div>
+          </div>
+        </div>
       </div>`;
     document.body.appendChild(root);
     panel = root.querySelector('#chatPanel');
@@ -1089,22 +1513,20 @@ const Chat = (() => {
     renderQuick();
 
     root.querySelector('#chatFab').addEventListener('click', async () => {
-      panel.classList.toggle('hidden');
-      if (!panel.classList.contains('hidden')) {
+      const willOpen = panel.classList.contains('hidden');
+      setPanelOpen(willOpen);
+      if (willOpen) {
         await ensureSession();
         if (me) {
           await refresh(true);
           hideQuickIfNeeded();
           startPoll();
+          updateHeadStatus();
         }
-      } else {
-        stopPoll();
       }
     });
     root.querySelector('#chatClose').addEventListener('click', () => {
-      panel.classList.add('hidden');
-      closeAttachMenu();
-      stopPoll();
+      setPanelOpen(false);
     });
     root.querySelector('#chatSendBtn').addEventListener('click', () => sendText());
     inputEl.addEventListener('input', syncActionBtn);
@@ -1157,6 +1579,9 @@ const Chat = (() => {
     root.querySelector('#chatEndConfirm')?.addEventListener('click', () => {
       confirmEndPicker().catch(() => UI.toast(I18n.t('chat_end_fail')));
     });
+
+    root.querySelector('#chatOrderClose')?.addEventListener('click', closeOrderSheet);
+    root.querySelector('#chatOrderBackdrop')?.addEventListener('click', closeOrderSheet);
 
     root.querySelector('#chatQuick').addEventListener('click', (e) => {
       const chip = e.target.closest('[data-quick]');
@@ -1226,7 +1651,7 @@ const Chat = (() => {
   async function open(opts = {}) {
     if (!root) buildUI();
     if (!panel) return;
-    panel.classList.remove('hidden');
+    setPanelOpen(true);
     await ensureSession();
     if (!me) {
       showLoginHint();
@@ -1235,6 +1660,7 @@ const Chat = (() => {
     await refresh(true);
     hideQuickIfNeeded();
     startPoll();
+    updateHeadStatus();
     const msg = opts.message != null ? String(opts.message).trim() : '';
     if (!msg) return;
     if (opts.send) {
