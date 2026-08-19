@@ -474,15 +474,23 @@ const UI = (() => {
       let timer = null;
       let dragging = false;
       let moved = false;
+      let blockClick = false;
       let startX = 0;
       let startY = 0;
-      let baseX = 0;
-      let width = 1;
+      let dragBase = 0;
+      let slideW = 1;
+
+      const measure = () => {
+        slideW = viewport.clientWidth || el.clientWidth || 1;
+        viewport.style.setProperty('--slide-w', slideW + 'px');
+        return slideW;
+      };
 
       const go = (n, animate) => {
         idx = ((n % imgs.length) + imgs.length) % imgs.length;
+        const w = measure();
         track.style.transition = animate === false ? 'none' : '';
-        track.style.transform = `translateX(-${idx * 100}%)`;
+        track.style.transform = `translate3d(-${idx * w}px, 0, 0)`;
         dots.forEach((d, di) => d.classList.toggle('on', di === idx));
       };
 
@@ -495,76 +503,83 @@ const UI = (() => {
 
       const play = () => {
         stop();
-        timer = setInterval(() => go(idx + 1), 4000);
+        timer = setInterval(() => go(idx + 1, true), 4000);
+      };
+
+      const ptrOpts = { passive: false };
+
+      const endDrag = () => {
+        document.removeEventListener('pointermove', onPointerMove, ptrOpts);
+        document.removeEventListener('pointerup', onPointerUp, ptrOpts);
+        document.removeEventListener('pointercancel', onPointerUp, ptrOpts);
       };
 
       const onPointerDown = (e) => {
-        if (e.button != null && e.button !== 0) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
         dragging = true;
         moved = false;
+        blockClick = false;
         stop();
-        width = viewport.clientWidth || el.clientWidth || 1;
+        measure();
         startX = e.clientX;
         startY = e.clientY;
-        baseX = -idx * width;
+        dragBase = -idx * slideW;
         track.style.transition = 'none';
-        try {
-          el.setPointerCapture(e.pointerId);
-        } catch (_) {}
+        document.addEventListener('pointermove', onPointerMove, ptrOpts);
+        document.addEventListener('pointerup', onPointerUp, ptrOpts);
+        document.addEventListener('pointercancel', onPointerUp, ptrOpts);
+        e.preventDefault();
       };
 
       const onPointerMove = (e) => {
         if (!dragging) return;
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
-        if (!moved && Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-        if (!moved && Math.abs(dy) > Math.abs(dx)) {
-          // vertical scroll — cancel horizontal drag
+        if (!moved && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        if (!moved && Math.abs(dy) > Math.abs(dx) * 1.35) {
           dragging = false;
+          endDrag();
           track.style.transition = '';
           go(idx, true);
           return;
         }
         moved = true;
         e.preventDefault();
-        const maxDrag = width * 0.85;
+        const maxDrag = slideW * 0.9;
         const clamped = Math.max(-maxDrag, Math.min(maxDrag, dx));
-        track.style.transform = `translateX(${baseX + clamped}px)`;
+        track.style.transform = `translate3d(${dragBase + clamped}px, 0, 0)`;
       };
 
       const onPointerUp = (e) => {
         if (!dragging) return;
         dragging = false;
+        endDrag();
         const dx = e.clientX - startX;
         track.style.transition = '';
-        if (moved && Math.abs(dx) > Math.min(48, width * 0.18)) {
+        if (moved && Math.abs(dx) > Math.min(40, slideW * 0.16)) {
           go(dx < 0 ? idx + 1 : idx - 1, true);
+          blockClick = true;
         } else {
           go(idx, true);
         }
         play();
       };
 
-      // Block navigation to product if user swiped the gallery
       el.addEventListener(
         'click',
         (e) => {
-          if (moved) {
+          if (blockClick) {
             e.preventDefault();
             e.stopPropagation();
-            moved = false;
+            blockClick = false;
           }
         },
         true
       );
 
-      viewport.addEventListener('pointerdown', onPointerDown);
-      viewport.addEventListener('pointermove', onPointerMove);
-      viewport.addEventListener('pointerup', onPointerUp);
-      viewport.addEventListener('pointercancel', onPointerUp);
-      viewport.addEventListener('pointerleave', (e) => {
-        if (dragging) onPointerUp(e);
-      });
+      el.addEventListener('dragstart', (e) => e.preventDefault());
+
+      viewport.addEventListener('pointerdown', onPointerDown, ptrOpts);
 
       if (dotsWrap) {
         dotsWrap.addEventListener('click', (e) => {
@@ -585,6 +600,11 @@ const UI = (() => {
         if (!dragging) play();
       });
 
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => go(idx, false));
+        ro.observe(viewport);
+      }
+
       if (typeof IntersectionObserver !== 'undefined') {
         const io = new IntersectionObserver(
           (entries) => {
@@ -599,6 +619,8 @@ const UI = (() => {
       } else {
         play();
       }
+
+      go(0, false);
     });
   }
 

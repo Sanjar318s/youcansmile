@@ -1254,8 +1254,8 @@ html:not([data-theme='purple']) .hero-scroll-hint {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  z-index: 1;
-  touch-action: pan-y;
+  z-index: 3;
+  touch-action: none;
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
@@ -1265,22 +1265,23 @@ html:not([data-theme='purple']) .hero-scroll-hint {
 }
 .card-slides {
   display: flex;
-  width: 100%;
   height: 100%;
   transition: transform 0.45s ease;
   will-change: transform;
 }
 .card-slides img,
 .card-img > img {
-  width: 100%;
+  flex: 0 0 var(--slide-w, 100%);
+  width: var(--slide-w, 100%);
+  min-width: var(--slide-w, 100%);
   height: 100%;
   object-fit: cover;
-  flex: 0 0 100%;
   pointer-events: none;
+  -webkit-user-drag: none;
+  user-drag: none;
   transition: transform .5s ease;
 }
-.card:hover .card-img:not(.has-slides) img,
-.card:hover .card-img.has-slides .card-slides img {
+.card:hover .card-img:not(.has-slides) img {
   transform: scale(1.04);
 }
 .card-slide-dots {
