@@ -447,11 +447,27 @@
           )
           .join('');
         imgGrid.querySelectorAll('[data-rm]').forEach((b) =>
-          b.addEventListener('click', () => {
+          b.addEventListener('click', (e) => {
+            e.stopPropagation();
             state.images.splice(Number(b.dataset.rm), 1);
             paintImages();
           })
         );
+        imgGrid.querySelectorAll('.img-item img').forEach((imgEl, i) => {
+          imgEl.title = I18n.t('photo_editor_title');
+          imgEl.addEventListener('click', async () => {
+            if (typeof PhotoEditor === 'undefined') return;
+            try {
+              const edited = await PhotoEditor.open(state.images[i]);
+              if (edited) {
+                state.images[i] = edited;
+                paintImages();
+              }
+            } catch (err) {
+              console.error(err);
+            }
+          });
+        });
       }
       paintImages();
 
@@ -496,14 +512,22 @@
         const files = [...e.target.files];
         const input = e.target;
         if (!files.length) return;
-        UI.toast(I18n.t('admin_optimizing_images'));
         for (const f of files) {
           if (f.size > 20 * 1024 * 1024) {
             UI.toast(I18n.t('admin_image_too_large'));
             continue;
           }
           try {
-            state.images.push(await optimizeProductImage(f));
+            let dataUrl = null;
+            if (typeof PhotoEditor !== 'undefined') {
+              dataUrl = await PhotoEditor.open(f);
+            }
+            if (!dataUrl) continue;
+            state.images.push(
+              typeof ImageOptimize !== 'undefined'
+                ? (await ImageOptimize.process(dataUrl, { contrast: 1, saturate: 1, brightness: 1 })).dataUrl
+                : dataUrl
+            );
           } catch (err) {
             console.error(err);
             UI.toast(I18n.t('admin_image_optimize_fail'));
