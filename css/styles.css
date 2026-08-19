@@ -1243,6 +1243,15 @@ html:not([data-theme='purple']) .hero-scroll-hint {
 .card-img {
   position: relative; aspect-ratio: 1; background: var(--img-bg);
   display: block; overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+.card-img[role='link'] {
+  cursor: pointer;
+}
+.card-img[role='link']:focus-visible {
+  outline: 2px solid var(--accent, var(--purple));
+  outline-offset: 2px;
 }
 .card-img::after {
   content: ''; position: absolute; inset: 0;

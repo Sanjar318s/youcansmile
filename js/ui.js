@@ -423,15 +423,22 @@ const UI = (() => {
           .map((_, i) => `<i class="${i === 0 ? 'on' : ''}"></i>`)
           .join('')}</span>`
       : '';
-    return `
-      <article class="card">
-        <a class="card-img${multi ? ' has-slides' : ''}" href="product.html?id=${p.id}"${multi ? ` data-slide-count="${Math.min(8, imgs.length)}"` : ''}>
+    const productHref = `product.html?id=${encodeURIComponent(p.id)}`;
+    const imgBlock = multi
+      ? `<div class="card-img has-slides" data-href="${productHref}" data-slide-count="${Math.min(8, imgs.length)}" role="link" tabindex="0">
           ${stockBadge}
           <div class="card-slides-viewport">
             <div class="card-slides">${slides}</div>
           </div>
           ${dots}
-        </a>
+        </div>`
+      : `<a class="card-img" href="${productHref}">
+          ${stockBadge}
+          <img src="${escapeHtml(imgs[0])}" alt="${title}" loading="lazy"/>
+        </a>`;
+    return `
+      <article class="card">
+        ${imgBlock}
         <button class="card-fav ${fav ? 'active' : ''}" data-fav="${p.id}" aria-label="fav">
           ${
             (typeof ThemeApply !== 'undefined' && ThemeApply.icon('fav', ''))
@@ -468,6 +475,7 @@ const UI = (() => {
       const imgs = track ? Array.from(track.querySelectorAll('img')) : [];
       const dotsWrap = el.querySelector('.card-slide-dots');
       const dots = dotsWrap ? Array.from(dotsWrap.querySelectorAll('i')) : [];
+      const productHref = el.dataset.href || el.getAttribute('href') || '';
       if (imgs.length < 2 || !track) return;
 
       let idx = 0;
@@ -479,10 +487,12 @@ const UI = (() => {
       let startY = 0;
       let dragBase = 0;
       let slideW = 1;
+      let activePointer = null;
 
       const measure = () => {
         slideW = viewport.clientWidth || el.clientWidth || 1;
         viewport.style.setProperty('--slide-w', slideW + 'px');
+        track.style.setProperty('--slide-w', slideW + 'px');
         return slideW;
       };
 
@@ -506,16 +516,36 @@ const UI = (() => {
         timer = setInterval(() => go(idx + 1, true), 4000);
       };
 
-      const ptrOpts = { passive: false };
+      const ptrOpts = { passive: false, capture: false };
 
       const endDrag = () => {
+        activePointer = null;
         document.removeEventListener('pointermove', onPointerMove, ptrOpts);
         document.removeEventListener('pointerup', onPointerUp, ptrOpts);
         document.removeEventListener('pointercancel', onPointerUp, ptrOpts);
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      const finishDrag = (clientX) => {
+        if (!dragging) return;
+        dragging = false;
+        endDrag();
+        const dx = clientX - startX;
+        track.style.transition = '';
+        if (moved && Math.abs(dx) > Math.min(36, slideW * 0.14)) {
+          go(dx < 0 ? idx + 1 : idx - 1, true);
+          blockClick = true;
+        } else {
+          go(idx, true);
+        }
+        play();
       };
 
       const onPointerDown = (e) => {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
+        if (activePointer != null) return;
+        activePointer = e.pointerId;
         dragging = true;
         moved = false;
         blockClick = false;
@@ -528,15 +558,29 @@ const UI = (() => {
         document.addEventListener('pointermove', onPointerMove, ptrOpts);
         document.addEventListener('pointerup', onPointerUp, ptrOpts);
         document.addEventListener('pointercancel', onPointerUp, ptrOpts);
+        if (e.pointerType === 'mouse') {
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
+        }
         e.preventDefault();
+        e.stopPropagation();
       };
 
       const onPointerMove = (e) => {
-        if (!dragging) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        if (!moved && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-        if (!moved && Math.abs(dy) > Math.abs(dx) * 1.35) {
+        if (!dragging || (activePointer != null && e.pointerId !== activePointer)) return;
+        applyDrag(e.clientX, e.clientY, () => e.preventDefault());
+      };
+
+      const onMouseMove = (e) => {
+        if (!dragging || activePointer != null) return;
+        applyDrag(e.clientX, e.clientY, () => e.preventDefault());
+      };
+
+      function applyDrag(clientX, clientY, prevent) {
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+        if (!moved && Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        if (!moved && Math.abs(dy) > Math.abs(dx) * 2) {
           dragging = false;
           endDrag();
           track.style.transition = '';
@@ -544,25 +588,20 @@ const UI = (() => {
           return;
         }
         moved = true;
-        e.preventDefault();
-        const maxDrag = slideW * 0.9;
+        prevent();
+        const maxDrag = slideW * 0.95;
         const clamped = Math.max(-maxDrag, Math.min(maxDrag, dx));
         track.style.transform = `translate3d(${dragBase + clamped}px, 0, 0)`;
-      };
+      }
 
       const onPointerUp = (e) => {
-        if (!dragging) return;
-        dragging = false;
-        endDrag();
-        const dx = e.clientX - startX;
-        track.style.transition = '';
-        if (moved && Math.abs(dx) > Math.min(40, slideW * 0.16)) {
-          go(dx < 0 ? idx + 1 : idx - 1, true);
-          blockClick = true;
-        } else {
-          go(idx, true);
-        }
-        play();
+        if (activePointer != null && e.pointerId !== activePointer) return;
+        finishDrag(e.clientX);
+      };
+
+      const onMouseUp = (e) => {
+        if (activePointer != null) return;
+        finishDrag(e.clientX);
       };
 
       el.addEventListener(
@@ -572,14 +611,25 @@ const UI = (() => {
             e.preventDefault();
             e.stopPropagation();
             blockClick = false;
+            return;
+          }
+          if (productHref && !e.target.closest('.card-slide-dots')) {
+            location.href = productHref;
           }
         },
         true
       );
 
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && productHref) location.href = productHref;
+      });
+
       el.addEventListener('dragstart', (e) => e.preventDefault());
 
       viewport.addEventListener('pointerdown', onPointerDown, ptrOpts);
+      if (dotsWrap) {
+        dotsWrap.addEventListener('pointerdown', (e) => e.stopPropagation());
+      }
 
       if (dotsWrap) {
         dotsWrap.addEventListener('click', (e) => {
@@ -601,7 +651,9 @@ const UI = (() => {
       });
 
       if (typeof ResizeObserver !== 'undefined') {
-        const ro = new ResizeObserver(() => go(idx, false));
+        const ro = new ResizeObserver(() => {
+          if (!dragging) go(idx, false);
+        });
         ro.observe(viewport);
       }
 
