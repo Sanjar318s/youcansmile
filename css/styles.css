@@ -2489,6 +2489,55 @@ html:not([data-theme='purple']) .adm-badge.sale { background: rgba(230,126,99,0.
   font-size: 0.84rem;
   line-height: 1.4;
 }
+.admin-label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-help-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border-soft);
+  background: var(--glass-bg);
+  color: var(--text-3);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+}
+.admin-help-btn:hover {
+  border-color: var(--purple);
+  color: var(--purple);
+  background: rgba(139, 92, 246, 0.08);
+}
+.admin-help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10100;
+  background: rgba(10, 8, 6, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.admin-help-dialog {
+  max-width: 420px;
+  width: 100%;
+  background: var(--bg-card-solid, #fff);
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  padding: 20px 22px;
+  box-shadow: var(--shadow, 0 20px 50px rgba(0, 0, 0, 0.15));
+}
+.admin-help-dialog p {
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+.admin-help-dialog .btn { width: 100%; }
 .set-subacc {
   margin: 10px 0 0;
   border: 1px solid var(--border-soft);

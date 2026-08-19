@@ -28,6 +28,39 @@
     }
   });
 
+  /** Подсказка «?» для полей админки */
+  function adminLabel(text, helpKey) {
+    return `<span class="admin-label-row">${UI.escapeHtml(text)}<button type="button" class="admin-help-btn" data-help="${helpKey}" aria-label="${I18n.t('admin_help_btn')}">?</button></span>`;
+  }
+
+  function closeAdminHelp() {
+    document.querySelectorAll('.admin-help-overlay').forEach((el) => el.remove());
+  }
+
+  function bindAdminHelp(root) {
+    if (!root) return;
+    root.querySelectorAll('.admin-help-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeAdminHelp();
+        const key = btn.dataset.help;
+        const text = I18n.t(key);
+        const overlay = document.createElement('div');
+        overlay.className = 'admin-help-overlay';
+        overlay.innerHTML = `
+          <div class="admin-help-dialog" role="dialog" aria-modal="true">
+            <p>${UI.escapeHtml(text)}</p>
+            <button type="button" class="btn btn-primary btn-sm admin-help-close">${I18n.t('admin_help_ok')}</button>
+          </div>`;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (ev) => {
+          if (ev.target === overlay || ev.target.closest('.admin-help-close')) closeAdminHelp();
+        });
+      });
+    });
+  }
+
   /* ---------- картинка из файла (базовый ресайз) --------- */
   function fileToDataURL(file) {
     return new Promise((resolve, reject) => {
@@ -1294,6 +1327,33 @@
       { id: 'cream', label: 'Cream' },
     ];
     const TONES = ['sage', 'coral', 'cream', 'purple'];
+    const TONE_LABELS = {
+      sage: 'admin_tone_sage',
+      coral: 'admin_tone_coral',
+      cream: 'admin_tone_cream',
+      purple: 'admin_tone_purple',
+    };
+    const SLIDE_LINKS = [
+      { value: 'catalog.html', labelKey: 'admin_slide_link_catalog' },
+      { value: 'catalog.html?cat=keychains', labelKey: 'admin_slide_link_keychains' },
+      { value: 'catalog.html?cat=pendants', labelKey: 'admin_slide_link_pendants' },
+      { value: 'catalog.html?cat=bracelets', labelKey: 'admin_slide_link_bracelets' },
+      { value: 'catalog.html?cat=chokers', labelKey: 'admin_slide_link_chokers' },
+      { value: 'custom-order.html', labelKey: 'admin_slide_link_custom' },
+      { value: 'index.html#faq', labelKey: 'admin_slide_link_faq' },
+    ];
+
+    function slideHrefOptions(current) {
+      const cur = (current || 'catalog.html').trim();
+      let html = SLIDE_LINKS.map(
+        (l) =>
+          `<option value="${l.value}"${cur === l.value ? ' selected' : ''}>${I18n.t(l.labelKey)}</option>`
+      ).join('');
+      if (cur && !SLIDE_LINKS.some((l) => l.value === cur)) {
+        html += `<option value="${UI.escapeHtml(cur)}" selected>${UI.escapeHtml(cur)}</option>`;
+      }
+      return html;
+    }
 
     function bgCfg() {
       return Object.assign(
@@ -1481,33 +1541,33 @@
         <p class="set-hint">${I18n.t('admin_auto_translate_hint')}</p>
         <form class="adm-form" id="slideForm">
           <div class="field">
-            <label>${I18n.t('admin_slider_badge')}</label>
-            <input id="slBadge" value="${UI.escapeHtml(loc(p && p.badge))}" required/>
+            <label>${adminLabel(I18n.t('admin_slider_badge'), 'admin_help_slide_badge')}</label>
+            <input id="slBadge" value="${UI.escapeHtml(loc(p && p.badge))}" placeholder="${I18n.t('admin_slide_badge_ph')}" required/>
           </div>
           <div class="field">
-            <label>${I18n.t('admin_slider_title')}</label>
-            <input id="slTitle" value="${UI.escapeHtml(loc(p && p.title))}" required/>
+            <label>${adminLabel(I18n.t('admin_slider_title'), 'admin_help_slide_title')}</label>
+            <input id="slTitle" value="${UI.escapeHtml(loc(p && p.title))}" placeholder="${I18n.t('admin_slide_title_ph')}" required/>
           </div>
           <div class="field full">
-            <label>${I18n.t('admin_slider_text')}</label>
-            <textarea id="slText" rows="3" required>${UI.escapeHtml(loc(p && p.text))}</textarea>
+            <label>${adminLabel(I18n.t('admin_slider_text'), 'admin_help_slide_text')}</label>
+            <textarea id="slText" rows="3" placeholder="${I18n.t('admin_slide_text_ph')}" required>${UI.escapeHtml(loc(p && p.text))}</textarea>
           </div>
           <div class="field">
-            <label>${I18n.t('admin_slider_cta')}</label>
-            <input id="slCta" value="${UI.escapeHtml(loc(p && p.cta))}" required/>
+            <label>${adminLabel(I18n.t('admin_slider_cta'), 'admin_help_slide_cta')}</label>
+            <input id="slCta" value="${UI.escapeHtml(loc(p && p.cta))}" placeholder="${I18n.t('admin_slide_cta_ph')}" required/>
           </div>
           <div class="field">
-            <label>${I18n.t('admin_slider_href')}</label>
-            <input id="slHref" value="${UI.escapeHtml((p && p.href) || 'catalog.html')}" placeholder="catalog.html"/>
+            <label>${adminLabel(I18n.t('admin_slider_href'), 'admin_help_slide_href')}</label>
+            <select id="slHref">${slideHrefOptions(p && p.href)}</select>
           </div>
           <div class="field full">
-            <label>${I18n.t('admin_slider_tone')}</label>
+            <label>${adminLabel(I18n.t('admin_slider_tone'), 'admin_help_slide_tone')}</label>
             <div class="slider-tone-chips">
               ${TONES.map(
                 (t) => `
                 <label class="slider-tone-chip" data-tone="${t}">
                   <input type="radio" name="slTone" value="${t}" ${tone === t ? 'checked' : ''}/>
-                  <span>${t}</span>
+                  <span>${I18n.t(TONE_LABELS[t] || t)}</span>
                 </label>`
               ).join('')}
             </div>
@@ -1518,6 +1578,7 @@
           </div>
         </form>`;
 
+      bindAdminHelp(content);
       document.getElementById('slideBack').addEventListener('click', listView);
       document.getElementById('slideForm').addEventListener('submit', async (e) => {
         e.preventDefault();
