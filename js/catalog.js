@@ -115,6 +115,9 @@
           </article>`;
         })
         .join('');
+    } finally {
+      grid.classList.remove('catalog-loading');
+      grid.removeAttribute('aria-busy');
     }
   }
 

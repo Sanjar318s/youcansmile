@@ -1,5 +1,6 @@
 const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
 const { getProduct, saveProduct, deleteProduct } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const { requireAdmin } = require(require('path').resolve(process.cwd(), 'lib/admin-guard'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
@@ -12,16 +13,18 @@ module.exports = async (req, res) => {
       return json(res, 200, p);
     }
     if (req.method === 'PATCH') {
+      if (!(await requireAdmin(req, res))) return;
       const patch = (await readBody(req)) || {};
       const cur = await getProduct(id);
       if (!cur) return json(res, 404, { error: 'not_found' });
       const next = Object.assign({}, cur, patch);
       await saveProduct(next);
-      return json(res, 200, next);
+      return json(res, 200, next, { 'Cache-Control': 'private, no-store' });
     }
     if (req.method === 'DELETE') {
+      if (!(await requireAdmin(req, res))) return;
       await deleteProduct(id);
-      return json(res, 200, { ok: true });
+      return json(res, 200, { ok: true }, { 'Cache-Control': 'private, no-store' });
     }
     return json(res, 405, { error: 'method' });
   } catch (e) {

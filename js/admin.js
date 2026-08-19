@@ -612,13 +612,13 @@
 
   /* ------------------------ категории ---------------------- */
   async function renderCategories() {
-    const cats = await Api.getCategories();
+    const cats = await Api.getCategories({ bust: true });
     content.innerHTML = `
       <h2 style="font-size:1.4rem; margin-bottom:22px;">🏷️ ${I18n.t('admin_categories')}</h2>
       <div class="adm-toolbar">
         <input id="newCatIcon" style="width:70px; padding:11px; border:2px solid var(--border); border-radius:12px; text-align:center;" placeholder="😊"/>
         <input id="newCatRu" style="flex:1; min-width:120px; padding:11px 14px; border:2px solid var(--border); border-radius:12px;" placeholder="${I18n.t('admin_name_ru')}"/>
-        <input id="newCatEn" style="flex:1; min-width:120px; padding:11px 14px; border:2px solid var(--border); border-radius:12px;" placeholder="${I18n.t('admin_name_en')}"/>
+        <input id="newCatEn" style="flex:1; min-width:120px; padding:11px 14px; border:2px solid var(--border); border-radius:12px;" placeholder="${I18n.t('admin_name_en')} (${I18n.t('admin_optional') || 'необяз.'})"/>
         <button class="btn btn-primary btn-sm" id="addCatBtn">+ ${I18n.t('admin_add_category')}</button>
       </div>
       <div class="adm-toolbar" style="margin-top:14px;">
@@ -639,10 +639,22 @@
       const icon = document.getElementById('newCatIcon').value.trim() || '🎁';
       const ru = document.getElementById('newCatRu').value.trim();
       const en = document.getElementById('newCatEn').value.trim();
-      if (!ru || !en) return;
-      await Api.createCategory({ icon, name: { ru, en } });
-      UI.toast(I18n.t('admin_saved'));
-      renderCategories();
+      if (!ru) {
+        UI.toast(I18n.t('admin_cat_name_required') || 'Укажите название на русском');
+        document.getElementById('newCatRu').focus();
+        return;
+      }
+      try {
+        await Api.createCategory({ icon, name: { ru, en: en || ru, uz: ru } });
+        UI.toast(I18n.t('admin_saved'));
+        document.getElementById('newCatRu').value = '';
+        document.getElementById('newCatEn').value = '';
+        document.getElementById('newCatIcon').value = '';
+        renderCategories();
+      } catch (err) {
+        console.error(err);
+        UI.toast((I18n.t('admin_save_failed') || 'Ошибка сохранения') + ': ' + (err.message || err));
+      }
     });
     content.querySelectorAll('[data-ce]').forEach((b) =>
       b.addEventListener('click', async () => {

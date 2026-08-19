@@ -183,8 +183,14 @@ const Api = {
   },
 
   /* ------------------------- категории ----------------------- */
-  async getCategories() {
+  async getCategories(opts) {
     if (this.mode === 'remote') {
+      if (opts && opts.bust) {
+        const list = await this._remote('/api/categories?_=' + Date.now());
+        this._mem.categories = list;
+        delete this._memInflight.categories;
+        return list;
+      }
       return this._cacheGet('categories', () => this._remote('/api/categories'));
     }
     return this._ls(this.KEYS.categories, []);
@@ -192,7 +198,11 @@ const Api = {
   async createCategory(data) {
     if (this.mode === 'remote') {
       const cat = await this._remote('/api/categories', 'POST', data);
-      this.invalidateCache(['categories']);
+      if (Array.isArray(this._mem.categories)) {
+        this._mem.categories = this._mem.categories.concat(cat);
+      } else {
+        this.invalidateCache(['categories']);
+      }
       return cat;
     }
     const all = this._ls(this.KEYS.categories, []);
@@ -207,7 +217,11 @@ const Api = {
   async updateCategory(id, patch) {
     if (this.mode === 'remote') {
       const cat = await this._remote('/api/categories/' + id, 'PATCH', patch);
-      this.invalidateCache(['categories']);
+      if (Array.isArray(this._mem.categories)) {
+        this._mem.categories = this._mem.categories.map((c) => (c.id === id ? cat : c));
+      } else {
+        this.invalidateCache(['categories']);
+      }
       return cat;
     }
     const all = this._ls(this.KEYS.categories, []);
@@ -220,7 +234,11 @@ const Api = {
   async deleteCategory(id) {
     if (this.mode === 'remote') {
       const ok = await this._remote('/api/categories/' + id, 'DELETE');
-      this.invalidateCache(['categories']);
+      if (Array.isArray(this._mem.categories)) {
+        this._mem.categories = this._mem.categories.filter((c) => c.id !== id);
+      } else {
+        this.invalidateCache(['categories']);
+      }
       return ok;
     }
     this._save(this.KEYS.categories, this._ls(this.KEYS.categories, []).filter((c) => c.id !== id));

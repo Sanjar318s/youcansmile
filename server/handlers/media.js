@@ -1,6 +1,7 @@
 const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
 const { uid } = require(require('path').resolve(process.cwd(), 'lib/db'));
 const { saveMedia, getMedia } = require(require('path').resolve(process.cwd(), 'lib/chat'));
+const { requireAdmin } = require(require('path').resolve(process.cwd(), 'lib/admin-guard'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
@@ -27,6 +28,7 @@ module.exports = async (req, res) => {
       return;
     }
     if (req.method === 'POST') {
+      if (!(await requireAdmin(req, res))) return;
       const body = (await readBody(req)) || {};
       let mime = body.mime || 'application/octet-stream';
       let data = body.data || '';

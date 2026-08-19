@@ -1,6 +1,7 @@
 const { cors, json, readBody } = require(require('path').resolve(process.cwd(), 'lib/http'));
 const { ensureSeeded } = require(require('path').resolve(process.cwd(), 'lib/seed'));
-const { getProducts, saveProduct, deleteProduct, uid } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const { getProducts, saveProduct, uid } = require(require('path').resolve(process.cwd(), 'lib/data'));
+const { requireAdmin } = require(require('path').resolve(process.cwd(), 'lib/admin-guard'));
 
 /** Catalog list payload: omit bulky desc; keep image refs (prefer /api/media URLs). */
 function forList(p) {
@@ -29,10 +30,11 @@ module.exports = async (req, res) => {
       });
     }
     if (req.method === 'POST') {
+      if (!(await requireAdmin(req, res))) return;
       const body = (await readBody(req)) || {};
       const product = Object.assign({ id: uid('p'), createdAt: Date.now() }, body);
       await saveProduct(product);
-      return json(res, 201, product);
+      return json(res, 201, product, { 'Cache-Control': 'private, no-store' });
     }
     return json(res, 405, { error: 'method' });
   } catch (e) {

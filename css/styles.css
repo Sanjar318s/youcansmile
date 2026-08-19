@@ -1789,6 +1789,25 @@ html[data-theme='purple'] .about-sage-text p { color: var(--text-2); }
 }
 .catalog-empty { text-align: center; padding: 60px 20px; color: var(--text-3); }
 .catalog-empty h3 { font-family: var(--font); font-weight: 700; font-size: 1.15rem; color: var(--text); }
+.catalog-loading,
+.pd-grid.pd-loading {
+  min-height: 220px;
+  position: relative;
+}
+.catalog-loading::after,
+.pd-grid.pd-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: linear-gradient(90deg, var(--glass-bg) 25%, rgba(255,255,255,.08) 50%, var(--glass-bg) 75%);
+  background-size: 200% 100%;
+  animation: catalog-shimmer 1.1s ease-in-out infinite;
+}
+@keyframes catalog-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 
 /* ---------- product detail ---------- */
 .pd-grid { display: grid; grid-template-columns: 1fr; gap: clamp(24px, 5vw, 48px); align-items: start; }
