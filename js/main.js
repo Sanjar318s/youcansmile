@@ -99,6 +99,10 @@
   const categoryFilters = document.getElementById('categoryFilters');
   let categoryFilter = 'all';
 
+  if (featuredGrid && UI.showSkeletonGrid) {
+    UI.showSkeletonGrid(featuredGrid, 4);
+  }
+
   if (categoryFilters) {
     const parent = categoryFilters.parentElement;
     const wrap = document.createElement('div');
@@ -132,10 +136,19 @@
       list = (categoryFilter === 'all' ? fallback : fallback.filter((p) => p.categoryId === categoryFilter)).slice(0, 4);
       if (!list.length) list = fallback.slice(0, 4);
     }
+    // Keep height stable while swapping skeleton → cards
+    const prevH = featuredGrid.offsetHeight;
+    if (prevH > 80) featuredGrid.style.minHeight = prevH + 'px';
     await UI.renderGrid(featuredGrid, list, s);
     if (!isPurple && typeof HeroSage3D !== 'undefined') {
       HeroSage3D.refreshCards(featuredGrid);
     }
+    requestAnimationFrame(() => {
+      featuredGrid.style.minHeight = '';
+      if (typeof UI.keepHashAligned === 'function') {
+        UI.keepHashAligned(location.hash, 1800);
+      }
+    });
   }
 
   await renderFeatured();
@@ -163,6 +176,16 @@
     });
   }
 
+  /* promo orbs mild parallax */
+  document.querySelectorAll('.promo-orb').forEach((orb, i) => {
+    if (!orb.hasAttribute('data-parallax')) {
+      orb.setAttribute('data-parallax', String(0.08 + i * 0.04));
+      orb.setAttribute('data-parallax-axis', 'xy');
+    }
+  });
+  if (window.YCSParallax) window.YCSParallax.refresh();
+  if (window.YCSLazy) window.YCSLazy.scan(document);
+
   applyI18n();
 
   const bootHero = () => Hero3D.init({ title: document.getElementById('heroTitle') });
@@ -178,7 +201,6 @@
   }
 
   if (location.hash && typeof UI.scrollToHash === 'function') {
-    requestAnimationFrame(() => UI.scrollToHash(location.hash));
-    setTimeout(() => UI.scrollToHash(location.hash), 150);
+    UI.keepHashAligned(location.hash, 2600);
   }
 })();

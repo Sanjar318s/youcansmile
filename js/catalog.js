@@ -5,6 +5,12 @@
   document.documentElement.lang = I18n.lang;
   applyI18n();
   await Api.init();
+
+  const grid = document.getElementById('catalogGrid');
+  if (grid && typeof UI !== 'undefined' && UI.showSkeletonGrid) {
+    UI.showSkeletonGrid(grid, 8);
+  }
+
   const [s, , cats, allProducts] = await Promise.all([
     Api.getSettings(),
     Promise.all([UI.renderHeader('catalog'), UI.renderFooter()]),
@@ -25,7 +31,6 @@
     q: (params.get('q') || '').toLowerCase(),
   };
 
-  const grid = document.getElementById('catalogGrid');
   const empty = document.getElementById('catalogEmpty');
   const countLabel = document.getElementById('countLabel');
   const sortSelect = document.getElementById('sortSelect');
@@ -100,13 +105,13 @@
       await UI.renderGrid(grid, list, s && s.currency);
     } catch (err) {
       console.error('catalog renderGrid', err);
-      grid.innerHTML = list
+          grid.innerHTML = list
         .map((p) => {
           const title = I18n.txt(p.title) || p.id;
           const img = (p.images && p.images[0]) || 'img/logo-ycs.png';
           return `<article class="card">
-            <a class="card-img" href="product.html?id=${encodeURIComponent(p.id)}">
-              <img src="${img}" alt="" loading="lazy"/>
+            <a class="card-img img-loading" href="product.html?id=${encodeURIComponent(p.id)}">
+              <img class="js-lazy" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-src="${img}" alt="" decoding="async"/>
             </a>
             <div class="card-body">
               <a class="card-title" href="product.html?id=${encodeURIComponent(p.id)}">${UI.escapeHtml(title)}</a>
@@ -115,6 +120,7 @@
           </article>`;
         })
         .join('');
+      if (window.YCSLazy) window.YCSLazy.scan(grid);
     } finally {
       grid.classList.remove('catalog-loading');
       grid.removeAttribute('aria-busy');

@@ -111,46 +111,204 @@ const UI = (() => {
 
   function headerOffset() {
     const header = document.querySelector('.header');
-    if (header) return Math.ceil(header.getBoundingClientRect().height) + 8;
-    return 80;
+    if (header) return Math.ceil(header.getBoundingClientRect().height) + 12;
+    return 84;
   }
 
-  function scrollToHash(hash) {
+  function isHomePath() {
+    const p = String(location.pathname || '/').replace(/\/+$/, '') || '/';
+    return p === '/' || p === '' || /(^|\/)index(\.html)?$/i.test(p);
+  }
+
+  function sectionHref(id) {
+    // Same-document hash on home — avoids full reload from `/#section`
+    return isHomePath() ? '#' + id : '/#' + id;
+  }
+
+  function parseSectionHash(href) {
+    const raw = String(href || '').trim();
+    if (!raw) return null;
+    try {
+      const u = new URL(raw, location.href);
+      const id = String(u.hash || '').replace(/^#/, '');
+      if (!id) return null;
+      const path = (u.pathname || '/').replace(/\/+$/, '') || '/';
+      const homeLike = path === '/' || /(^|\/)index(\.html)?$/i.test(path);
+      const samePage = path === (location.pathname.replace(/\/+$/, '') || '/');
+      if (homeLike || samePage) return id;
+    } catch (_) { /* fall through */ }
+    const m = raw.match(/#([A-Za-z][\w-]*)$/);
+    return m ? m[1] : null;
+  }
+
+  function closeMobileNav() {
+    const navEl = document.getElementById('nav');
+    const burger = document.getElementById('burger');
+    if (navEl) navEl.classList.remove('open');
+    if (burger) burger.classList.remove('open');
+    document.body.classList.remove('nav-open');
+  }
+
+  let navGestureLockUntil = 0;
+  function armNavGestureLock(ms = 500) {
+    navGestureLockUntil = Date.now() + ms;
+  }
+  function navGestureLocked() {
+    return Date.now() < navGestureLockUntil;
+  }
+
+  function scrollToHash(hash, behavior) {
     const id = String(hash || location.hash || '').replace(/^#/, '');
-    if (!id) return;
+    if (!id) return false;
+    const el = document.getElementById(id);
+    if (!el) return false;
+    const top = el.getBoundingClientRect().top + window.pageYOffset - headerOffset();
+    const mode = behavior || 'smooth';
+    window.scrollTo({ top: Math.max(0, top), behavior: mode });
+    return true;
+  }
+
+  /** Re-align hash target when content above it finishes loading (featured grid, images). */
+  function keepHashAligned(sectionId, ms) {
+    const id = String(sectionId || location.hash || '').replace(/^#/, '');
+    if (!id || !/^(about|faq|shipping|contacts)$/.test(id)) return;
     const el = document.getElementById(id);
     if (!el) return;
-    const top = el.getBoundingClientRect().top + window.pageYOffset - headerOffset();
-    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+
+    const duration = ms || 2200;
+    let stopped = false;
+    let armed = false;
+    // Let the smooth scroll start from the current position first
+    const armTimer = setTimeout(() => {
+      armed = true;
+    }, 320);
+
+    const snap = () => {
+      if (stopped || !armed) return;
+      if (location.hash.replace(/^#/, '') !== id) return;
+      scrollToHash(id, 'auto');
+    };
+
+    const roots = [
+      document.getElementById('featuredGrid'),
+      document.getElementById('promos'),
+      document.getElementById('catsGrid'),
+      document.getElementById('promoSlider'),
+    ].filter(Boolean);
+
+    let ro = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => snap());
+      roots.forEach((r) => ro.observe(r));
+    }
+
+    const onLoad = (e) => {
+      if (e.target && e.target.tagName === 'IMG') snap();
+    };
+    document.addEventListener('load', onLoad, true);
+
+    const timers = [450, 900, 1500].map((t) => setTimeout(snap, t));
+
+    const onUserScroll = () => {
+      if (stopped || !armed || location.hash.replace(/^#/, '') !== id) return;
+      const targetTop = el.getBoundingClientRect().top + window.pageYOffset - headerOffset();
+      if (Math.abs(window.pageYOffset - targetTop) > 280) cancel();
+    };
+    window.addEventListener('scroll', onUserScroll, { passive: true });
+
+    function cancel() {
+      if (stopped) return;
+      stopped = true;
+      clearTimeout(armTimer);
+      timers.forEach(clearTimeout);
+      if (ro) ro.disconnect();
+      document.removeEventListener('load', onLoad, true);
+      window.removeEventListener('scroll', onUserScroll);
+    }
+
+    function finish() {
+      if (stopped) return;
+      armed = true;
+      if (location.hash.replace(/^#/, '') === id) scrollToHash(id, 'auto');
+      cancel();
+    }
+
+    setTimeout(finish, duration);
+  }
+
+  function goHomeSection(sectionId) {
+    if (!sectionId) return;
+    if (isHomePath()) {
+      // Keep current path; only change hash — no reload
+      try {
+        history.pushState(null, '', sectionHref(sectionId));
+      } catch (_) {
+        history.replaceState(null, '', '#' + sectionId);
+      }
+      closeMobileNav();
+      const b = document.getElementById('burger');
+      if (b) b.setAttribute('aria-expanded', 'false');
+      // Smooth from current scroll position (e.g. footer → FAQ upward)
+      scrollToHash(sectionId, 'smooth');
+      keepHashAligned(sectionId, 2400);
+      return;
+    }
+    closeMobileNav();
+    location.assign('/#' + sectionId);
   }
 
   function bindHashNav() {
-    document.addEventListener('click', (e) => {
-      const a = e.target.closest('a[href*="#"]');
-      if (!a) return;
-      const href = a.getAttribute('href') || '';
-      const m = href.match(/^(?:index\.html)?#([A-Za-z][\w-]*)/);
-      if (!m) return;
-      const onHome =
-        /(?:^|\/)(index\.html)?$/.test(location.pathname.replace(/\/+$/, '/') || '/') ||
-        location.pathname.endsWith('/') ||
-        /index\.html$/i.test(location.pathname);
-      if (!onHome && !/index\.html/i.test(href)) return;
-      if (!onHome) return; // let browser navigate to index.html#...
-      e.preventDefault();
-      history.replaceState(null, '', '#' + m[1]);
-      scrollToHash(m[1]);
-      const navEl = document.getElementById('nav');
-      const burger = document.getElementById('burger');
-      if (navEl) navEl.classList.remove('open');
-      if (burger) burger.classList.remove('open');
-      document.body.classList.remove('nav-open');
+    if (bindHashNav._bound) return;
+    bindHashNav._bound = true;
+
+    document.addEventListener(
+      'click',
+      (e) => {
+        if (!navGestureLocked()) return;
+        const a = e.target.closest('a');
+        if (!a) return;
+        if (a.closest('#nav') || a.classList.contains('orders-btn') || a.classList.contains('account-btn') || a.classList.contains('fav-btn')) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      },
+      true
+    );
+
+    document.addEventListener(
+      'click',
+      (e) => {
+        const a = e.target.closest('a[href]');
+        if (!a || a.target === '_blank') return;
+        const href = a.getAttribute('href') || '';
+        const sectionId = a.dataset.navSection || parseSectionHash(href);
+        if (!sectionId) return;
+        if (!/^(about|faq|shipping|contacts|featured)$/.test(sectionId)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+        armNavGestureLock(400);
+        goHomeSection(sectionId);
+      },
+      true
+    );
+
+    window.addEventListener('hashchange', () => {
+      if (isHomePath()) {
+        scrollToHash(location.hash, 'smooth');
+        keepHashAligned(location.hash, 1800);
+      }
+    });
+    window.addEventListener('popstate', () => {
+      if (isHomePath() && location.hash) {
+        scrollToHash(location.hash, 'smooth');
+        keepHashAligned(location.hash, 1800);
+      }
     });
   }
 
   if (typeof document !== 'undefined') {
     bindHashNav();
-    window.addEventListener('hashchange', () => scrollToHash(location.hash));
   }
 
   async function renderHeader(active = '') {
@@ -194,8 +352,8 @@ const UI = (() => {
             </div>`;
 
     const logo = isPurple
-      ? `<a class="logo" href="index.html">You<span>Can</span>Smile</a>`
-      : `<a class="logo logo-badge" href="index.html"><img class="logo-cat" src="img/logo-ycs.png" alt="YOU CAN SMILE SHOP"/></a>`;
+      ? `<a class="logo" href="/">You<span>Can</span>Smile</a>`
+      : `<a class="logo logo-badge" href="/"><img class="logo-cat" src="img/logo-ycs.png" alt="YOU CAN SMILE SHOP"/></a>`;
 
     const iconMarkup = (name, svg) => {
       const emoji = (typeof ThemeApply !== 'undefined' && ThemeApply.icon(name, '')) || '';
@@ -208,42 +366,46 @@ const UI = (() => {
     /* Receipt / order history */
     const ordersSvg = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h8l3 3v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v4h4"/><path d="M9 12h6M9 16h4"/></svg>`;
 
+    const aboutActive =
+      isHomePath() && /^#?about$/i.test(location.hash || '') ? ' class="active"' : '';
+
     const nav = `
-            <a href="catalog.html"${isActive('catalog')} data-i18n="sage_nav_shop">${I18n.t('sage_nav_shop')}</a>
-            <a href="index.html#about" data-i18n="sage_nav_about">${I18n.t('sage_nav_about')}</a>
-            <a class="nav-mobile-only" href="favorites.html"${isActive('favorites')} data-i18n="nav_favorites">${I18n.t('nav_favorites')}</a>
-            <a class="nav-mobile-only" href="orders.html"${isActive('orders')} data-i18n="account_orders">${I18n.t('account_orders')}</a>
-            <a class="nav-mobile-only" href="account.html"${isActive('account')} data-i18n="nav_account">${I18n.t('nav_account')}</a>`;
+            <a href="/catalog" data-nav="catalog"${isActive('catalog')} data-i18n="sage_nav_shop">${I18n.t('sage_nav_shop')}</a>
+            <a href="${sectionHref('about')}" data-nav="about" data-nav-section="about"${aboutActive} data-i18n="sage_nav_about">${I18n.t('sage_nav_about')}</a>
+            <span class="nav-sep nav-mobile-only" aria-hidden="true"></span>
+            <a class="nav-mobile-only" href="/favorites" data-nav="favorites"${isActive('favorites')} data-i18n="nav_favorites">${I18n.t('nav_favorites')}</a>
+            <a class="nav-mobile-only" href="/orders" data-nav="orders"${isActive('orders')} data-i18n="account_orders">${I18n.t('account_orders')}</a>
+            <a class="nav-mobile-only" href="/account" data-nav="account"${isActive('account')} data-i18n="nav_account">${I18n.t('nav_account')}</a>`;
 
     root.innerHTML = `
       <header class="header">
         <div class="container header-inner">
-          <button class="burger" id="burger" aria-label="menu">
+          <button class="burger" id="burger" type="button" aria-label="menu" aria-expanded="false" aria-controls="nav">
             <span></span><span></span><span></span>
           </button>
           ${logo}
-          <nav class="nav" id="nav">${nav}</nav>
+          <nav class="nav" id="nav" aria-label="Main">${nav}</nav>
           <div class="header-actions">
             <div class="header-group header-group-tools">
-              <button class="icon-btn search-toggle" id="searchToggle" aria-label="search" title="${I18n.t('search_placeholder')}">
+              <button class="icon-btn search-toggle" id="searchToggle" type="button" aria-label="search" title="${I18n.t('search_placeholder')}">
                 ${iconMarkup('search', searchSvg)}
               </button>
             </div>
             <div class="header-group header-group-shop">
-              <a class="icon-btn fav-btn header-bar-extra" href="favorites.html" aria-label="${I18n.t('nav_favorites')}" title="${I18n.t('nav_favorites')}">
+              <a class="icon-btn fav-btn header-bar-extra" href="/favorites" aria-label="${I18n.t('nav_favorites')}" title="${I18n.t('nav_favorites')}">
                 ${iconMarkup('fav', favSvg)}
                 <span class="badge fav-badge hidden">0</span>
               </a>
-              <a class="icon-btn orders-btn header-bar-extra" href="orders.html" aria-label="${I18n.t('account_orders')}" title="${I18n.t('account_orders')}">
+              <a class="icon-btn orders-btn header-bar-extra" href="/orders" aria-label="${I18n.t('account_orders')}" title="${I18n.t('account_orders')}">
                 ${ordersSvg}
               </a>
-              <a class="icon-btn cart-btn" href="cart.html" aria-label="${I18n.t('nav_cart')}" title="${I18n.t('nav_cart')}">
+              <a class="icon-btn cart-btn" href="/cart" aria-label="${I18n.t('nav_cart')}" title="${I18n.t('nav_cart')}">
                 ${iconMarkup('cart', cartSvg)}
                 <span class="badge cart-badge hidden">0</span>
               </a>
             </div>
             <div class="header-group header-group-user">
-              <a class="icon-btn account-btn header-bar-extra" href="account.html" aria-label="${I18n.t('nav_account')}" title="${I18n.t('nav_account')}">
+              <a class="icon-btn account-btn header-bar-extra" href="/account" aria-label="${I18n.t('nav_account')}" title="${I18n.t('nav_account')}">
                 ${profileSvg}
               </a>
               ${settingsPanel}
@@ -262,22 +424,43 @@ const UI = (() => {
 
     const burger = document.getElementById('burger');
     const navEl = document.getElementById('nav');
-    burger.addEventListener('click', () => {
+    burger.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const open = navEl.classList.toggle('open');
       burger.classList.toggle('open', open);
+      burger.setAttribute('aria-expanded', open ? 'true' : 'false');
       document.body.classList.toggle('nav-open', open);
     });
-    navEl.querySelectorAll('a').forEach((a) => {
-      a.addEventListener('click', () => {
-        navEl.classList.remove('open');
-        burger.classList.remove('open');
-        document.body.classList.remove('nav-open');
+
+    if (!bindHashNav._backdropBound) {
+      bindHashNav._backdropBound = true;
+      document.addEventListener('click', (e) => {
+        if (!document.body.classList.contains('nav-open')) return;
+        if (e.target.closest('#nav') || e.target.closest('#burger')) return;
+        closeMobileNav();
+        const b = document.getElementById('burger');
+        if (b) b.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    navEl.querySelectorAll('a[href]').forEach((a) => {
+      a.addEventListener('click', (e) => {
+        if (a.dataset.navSection) return; // bindHashNav
+        // Own the navigation so a ghost click cannot open another item
+        e.preventDefault();
+        e.stopPropagation();
+        const href = a.getAttribute('href');
+        armNavGestureLock(550);
+        closeMobileNav();
+        burger.setAttribute('aria-expanded', 'false');
+        if (href) setTimeout(() => { location.assign(href); }, 40);
       });
     });
 
     if (location.hash) {
       requestAnimationFrame(() => scrollToHash(location.hash));
-      setTimeout(() => scrollToHash(location.hash), 120);
+      setTimeout(() => scrollToHash(location.hash), 200);
     }
 
     const settingsToggle = document.getElementById('settingsToggle');
@@ -346,7 +529,7 @@ const UI = (() => {
                 .map(
                   (p) => `
                 <a class="search-hit" href="product.html?id=${p.id}">
-                  <img src="${p.images[0]}" alt="" loading="lazy"/>
+                  <img class="js-lazy" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-src="${p.images[0]}" alt="" decoding="async"/>
                   <div class="sh-info">
                     <b>${escapeHtml(I18n.txt(p.title))}</b>
                     <span>${Store.formatPrice(p.price, s)}</span>
@@ -393,7 +576,7 @@ const UI = (() => {
               </a>` : '',
     ].join('');
     const brand = isPurple
-      ? `<a class="logo" href="index.html">You<span>Can</span>Smile</a>`
+      ? `<a class="logo" href="/">You<span>Can</span>Smile</a>`
       : `<div class="fs-brand"><img src="img/logo-ycs.png" alt="YOU CAN SMILE SHOP"/><b>YOU CAN SMILE SHOP</b></div>`;
 
     root.innerHTML = `
@@ -405,11 +588,11 @@ const UI = (() => {
           </div>
           <div class="fs-col">
             <h4>${I18n.t('sage_footer_links')}</h4>
-            <a href="catalog.html">${I18n.t('sage_nav_shop')}</a>
-            <a href="index.html#faq">${I18n.t('sage_footer_faq')}</a>
-            <a href="index.html#shipping">${I18n.t('sage_footer_shipping')}</a>
-            ${hasAnyContact ? `<a href="index.html#contacts">${I18n.t('sage_footer_contact')}</a>` : ''}
-            ${isPurple ? `<a href="admin.html">${I18n.t('nav_admin')}</a>` : ''}
+            <a href="/catalog">${I18n.t('sage_nav_shop')}</a>
+            <a href="${sectionHref('faq')}" data-nav-section="faq">${I18n.t('sage_footer_faq')}</a>
+            <a href="${sectionHref('shipping')}" data-nav-section="shipping">${I18n.t('sage_footer_shipping')}</a>
+            ${hasAnyContact ? `<a href="${sectionHref('contacts')}" data-nav-section="contacts">${I18n.t('sage_footer_contact')}</a>` : ''}
+            ${isPurple ? `<a href="/admin">${I18n.t('nav_admin')}</a>` : ''}
           </div>
           ${(socialIcons || tgChannel) ? `<div class="fs-col">
             <h4>${I18n.t('sage_footer_follow')}</h4>
@@ -485,7 +668,7 @@ const UI = (() => {
       .slice(0, 8)
       .map(
         (src, i) =>
-          `<img src="${escapeHtml(src)}" alt="${title}" loading="lazy"${i ? ' aria-hidden="true"' : ''}/>`
+          `<img class="js-lazy" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-src="${escapeHtml(src)}" alt="${title}" decoding="async"${i ? ' aria-hidden="true"' : ''}/>`
       )
       .join('');
     const dots = multi
@@ -496,16 +679,16 @@ const UI = (() => {
       : '';
     const productHref = `product.html?id=${encodeURIComponent(p.id)}`;
     const imgBlock = multi
-      ? `<div class="card-img has-slides" data-href="${productHref}" data-slide-count="${Math.min(8, imgs.length)}" role="link" tabindex="0">
+      ? `<div class="card-img has-slides img-loading" data-href="${productHref}" data-slide-count="${Math.min(8, imgs.length)}" role="link" tabindex="0">
           ${stockBadge}
           <div class="card-slides-viewport">
             <div class="card-slides">${slides}</div>
           </div>
           ${dots}
         </div>`
-      : `<a class="card-img" href="${productHref}">
+      : `<a class="card-img img-loading" href="${productHref}">
           ${stockBadge}
-          <img src="${escapeHtml(imgs[0])}" alt="${title}" loading="lazy"/>
+          <img class="js-lazy" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-src="${escapeHtml(imgs[0])}" alt="${title}" decoding="async"/>
         </a>`;
     return `
       <article class="card">
@@ -747,6 +930,29 @@ const UI = (() => {
     });
   }
 
+  function skeletonCardHTML() {
+    return `<article class="card card-skeleton" aria-hidden="true">
+      <div class="card-img skel-block"></div>
+      <div class="card-body">
+        <div class="skel-line w55"></div>
+        <div class="skel-line w80"></div>
+        <div class="skel-line w40"></div>
+        <div class="skel-actions">
+          <span class="skel-btn"></span>
+          <span class="skel-btn"></span>
+        </div>
+      </div>
+    </article>`;
+  }
+
+  function showSkeletonGrid(container, count = 8) {
+    if (!container) return;
+    const n = Math.max(2, Math.min(Number(count) || 8, 12));
+    container.classList.add('is-skeleton');
+    container.setAttribute('aria-busy', 'true');
+    container.innerHTML = Array.from({ length: n }, skeletonCardHTML).join('');
+  }
+
   async function renderGrid(container, products, currency) {
     if (!container) return;
     let ratings = {};
@@ -756,13 +962,21 @@ const UI = (() => {
       ratings = {};
     }
     const list = Array.isArray(products) ? products : [];
+    container.classList.remove('is-skeleton', 'catalog-loading');
     container.innerHTML = list.length
       ? (await Promise.all(list.map((p) => cardHTML(p, currency, ratings[p.id])))).join('')
       : '';
+    container.removeAttribute('aria-busy');
     bindCardEvents(container);
     startCardSlides(container);
+    if (window.YCSLazy && typeof window.YCSLazy.scan === 'function') {
+      window.YCSLazy.scan(container);
+    }
     if (window.YCSReveal && typeof window.YCSReveal.scan === 'function') {
       window.YCSReveal.scan(container);
+    }
+    if (window.YCSParallax && typeof window.YCSParallax.refresh === 'function') {
+      window.YCSParallax.refresh();
     }
   }
 
@@ -914,6 +1128,8 @@ const UI = (() => {
     renderFooter,
     cardHTML,
     renderGrid,
+    showSkeletonGrid,
+    skeletonCardHTML,
     startCardSlides,
     bindCardEvents,
     toast,
@@ -930,6 +1146,7 @@ const UI = (() => {
     getReceiptDataURL,
     readFileAsDataURL,
     scrollToHash,
+    keepHashAligned,
     headerOffset,
   };
 })();

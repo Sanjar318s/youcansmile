@@ -30,13 +30,13 @@
   function render() {
     const inStock = product.inStock;
     const html = `
-      <div class="pd-gallery">
-        <div class="pd-main">
-          <img id="pdMainImg" src="${imgs[activeImg]}" alt="${UI.escapeHtml(I18n.txt(product.title))}"/>
+      <div class="pd-gallery" data-parallax="0.06">
+        <div class="pd-main img-loading">
+          <img id="pdMainImg" class="js-lazy is-loaded" src="${UI.escapeHtml(imgs[activeImg])}" alt="${UI.escapeHtml(I18n.txt(product.title))}" decoding="async"/>
         </div>
         ${imgs.length > 1 ? `
         <div class="pd-thumbs">
-          ${imgs.map((img, i) => `<div class="pd-thumb ${i === activeImg ? 'active' : ''}" data-i="${i}"><img src="${img}" alt=""/></div>`).join('')}
+          ${imgs.map((img, i) => `<div class="pd-thumb ${i === activeImg ? 'active' : ''}" data-i="${i}"><img class="js-lazy" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-src="${UI.escapeHtml(img)}" alt="" decoding="async"/></div>`).join('')}
         </div>` : ''}
       </div>
       <div class="pd-info">
@@ -77,6 +77,8 @@
     grid.innerHTML = html;
     grid.classList.remove('pd-loading');
     grid.removeAttribute('aria-busy');
+    if (window.YCSLazy) window.YCSLazy.scan(grid);
+    if (window.YCSParallax) window.YCSParallax.refresh();
     bind();
   }
 
@@ -86,7 +88,13 @@
         th.addEventListener('click', () => {
           activeImg = Number(th.dataset.i);
           grid.querySelectorAll('.pd-thumb').forEach((t) => t.classList.toggle('active', t === th));
-          document.getElementById('pdMainImg').src = imgs[activeImg];
+          const main = document.getElementById('pdMainImg');
+          if (main) {
+            main.src = imgs[activeImg];
+            main.classList.add('is-loaded');
+            main.closest('.pd-main')?.classList.add('img-loaded');
+            main.closest('.pd-main')?.classList.remove('img-loading');
+          }
         })
       );
     }
@@ -247,9 +255,11 @@
 
   /* похожие товары */
   const all = await Api.getProducts();
+  const relatedGrid = document.getElementById('relatedGrid');
+  if (relatedGrid && UI.showSkeletonGrid) UI.showSkeletonGrid(relatedGrid, 4);
   const related = all.filter((p) => p.id !== product.id && p.categoryId === product.categoryId).slice(0, 4);
   const fill = related.length ? related : all.filter((p) => p.id !== product.id).slice(0, 4);
-  await UI.renderGrid(document.getElementById('relatedGrid'), fill, s.currency);
+  await UI.renderGrid(relatedGrid, fill, s.currency);
 
   document.title = I18n.txt(product.title) + ' — YoucanSmile';
 })();
