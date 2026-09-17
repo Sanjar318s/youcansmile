@@ -138,29 +138,23 @@
 
   async function renderFeatured() {
     if (!featuredGrid) return;
-    let list = featuredAll.length ? featuredAll.slice() : prods.slice();
-    if (categoryFilter !== 'all') {
-      list = list.filter((p) => p.categoryId === categoryFilter);
+    let list;
+    if (categoryFilter === 'all') {
+      // Home: prefer featured, else newest stock
+      list = (featuredAll.length ? featuredAll : prods).slice(0, 4);
+    } else {
+      // Strict category — never fill gaps with other categories
+      const inCat = prods.filter((p) => String(p.categoryId || '') === String(categoryFilter));
+      const featuredInCat = inCat.filter((p) => p.featured);
+      list = (featuredInCat.length ? featuredInCat : inCat).slice(0, 4);
     }
-    list = list.slice(0, 4);
-    if (!list.length) {
-      const fallback = featuredAll.length ? featuredAll : prods;
-      list = (categoryFilter === 'all' ? fallback : fallback.filter((p) => p.categoryId === categoryFilter)).slice(0, 4);
-      if (!list.length) list = fallback.slice(0, 4);
-    }
-    // Keep height stable while swapping skeleton → cards
-    const prevH = featuredGrid.offsetHeight;
-    if (prevH > 80) featuredGrid.style.minHeight = prevH + 'px';
     await UI.renderGrid(featuredGrid, list, s);
+    if (!list.length) {
+      featuredGrid.innerHTML = `<p class="catalog-empty" style="grid-column:1/-1;margin:0;padding:28px 8px;text-align:center;">${I18n.t('no_products')}</p>`;
+    }
     if (!isPurple && typeof HeroSage3D !== 'undefined') {
       HeroSage3D.refreshCards(featuredGrid);
     }
-    requestAnimationFrame(() => {
-      featuredGrid.style.minHeight = '';
-      if (typeof UI.keepHashAligned === 'function') {
-        UI.keepHashAligned(location.hash, 1800);
-      }
-    });
   }
 
   await renderFeatured();
@@ -205,28 +199,38 @@
   else window.addEventListener('load', bootHero);
 
   document.getElementById('heroScrollHint')?.addEventListener('click', () => {
-    if (typeof UI.goHomeSection === 'function') UI.goHomeSection('featured');
-    else document.getElementById('featured')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Scroll only — do not set #featured (that caused reload bounce)
+    if (typeof UI.goHomeSection === 'function') {
+      UI.goHomeSection('featured', { fromHint: true, noHash: true });
+    } else {
+      document.getElementById('featured')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   });
 
   if (!isPurple && typeof HeroSage3D !== 'undefined') {
     HeroSage3D.refreshCards(document.getElementById('featuredGrid'));
   }
 
-  // Pending scroll from another page (footer FAQ etc.) or URL hash
+  // Clear sticky #featured left by older builds (caused scroll bounce on load)
+  if (location.hash === '#featured') {
+    try {
+      history.replaceState(null, '', location.pathname + location.search);
+    } catch (_) { /* ignore */ }
+  }
+
+  // Cross-page pending section, or deep-link hash (about/faq/…)
   let pendingSection = '';
   try {
     pendingSection = sessionStorage.getItem('ycs_scroll_to') || '';
     if (pendingSection) sessionStorage.removeItem('ycs_scroll_to');
   } catch (_) { /* ignore */ }
-  if (!pendingSection && location.hash) pendingSection = location.hash.replace(/^#/, '');
+  if (!pendingSection && location.hash) {
+    const h = location.hash.replace(/^#/, '');
+    if (/^(about|faq|shipping|contacts)$/.test(h)) pendingSection = h;
+  }
 
   if (pendingSection && typeof UI.goHomeSection === 'function') {
-    // Wait a tick so featured skeleton/layout exists, then smooth-scroll like the hint button
-    requestAnimationFrame(() => {
-      UI.goHomeSection(pendingSection);
-    });
-  } else if (pendingSection && typeof UI.scrollToHash === 'function') {
-    UI.keepHashAligned(pendingSection, 2600);
+    // Featured already rendered — one smooth scroll, no correction loops
+    requestAnimationFrame(() => UI.goHomeSection(pendingSection));
   }
 })();

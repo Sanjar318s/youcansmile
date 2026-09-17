@@ -141,25 +141,9 @@ const UI = (() => {
     return m ? m[1] : null;
   }
 
-  function closeMobileNav() {
-    const navEl = document.getElementById('nav');
-    const burger = document.getElementById('burger');
-    if (navEl) navEl.classList.remove('open');
-    if (burger) burger.classList.remove('open');
-    document.body.classList.remove('nav-open');
-  }
-
-  let navGestureLockUntil = 0;
-  function armNavGestureLock(ms = 500) {
-    navGestureLockUntil = Date.now() + ms;
-  }
-  function navGestureLocked() {
-    return Date.now() < navGestureLockUntil;
-  }
-
   /** Same motion as #heroScrollHint: smooth scrollIntoView, no reload. */
   function scrollToHash(hash, behavior) {
-    const id = String(hash || location.hash || '').replace(/^#/, '');
+    const id = String(hash || '').replace(/^#/, '');
     if (!id) return false;
     const el = document.getElementById(id);
     if (!el) return false;
@@ -173,62 +157,71 @@ const UI = (() => {
     return true;
   }
 
-  /** After layout shifts above the target, gently re-align (does not interrupt smooth scroll). */
+  /**
+   * One optional correction after layout settles.
+   * No ResizeObserver / image-load loops — those caused the up/down bounce.
+   */
   function keepHashAligned(sectionId, ms) {
-    const id = String(sectionId || location.hash || '').replace(/^#/, '');
+    const id = String(sectionId || '').replace(/^#/, '');
     if (!id || !/^(about|faq|shipping|contacts|featured)$/.test(id)) return;
-    const el = document.getElementById(id);
-    if (!el) return;
-
-    const duration = ms || 2000;
-    let stopped = false;
-    const armAt = Date.now() + 700;
-
-    const snap = () => {
-      if (stopped || Date.now() < armAt) return;
+    const delay = typeof ms === 'number' ? Math.min(Math.max(ms, 200), 1200) : 450;
+    setTimeout(() => {
       if (location.hash.replace(/^#/, '') !== id) return;
+      const el = document.getElementById(id);
+      if (!el) return;
       const delta = Math.abs(el.getBoundingClientRect().top - headerOffset());
-      if (delta < 48) return;
+      if (delta < 56) return;
       try {
         el.scrollIntoView({ behavior: 'auto', block: 'start' });
-      } catch (_) {
-        /* ignore */
-      }
-    };
-
-    const roots = [document.getElementById('featuredGrid'), document.getElementById('promos')].filter(Boolean);
-    let ro = null;
-    if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => snap());
-      roots.forEach((r) => ro.observe(r));
-    }
-    const onLoad = (e) => {
-      if (e.target && e.target.tagName === 'IMG') snap();
-    };
-    document.addEventListener('load', onLoad, true);
-    const timers = [800, 1200, 1800].map((t) => setTimeout(snap, t));
-
-    function cancel() {
-      if (stopped) return;
-      stopped = true;
-      timers.forEach(clearTimeout);
-      if (ro) ro.disconnect();
-      document.removeEventListener('load', onLoad, true);
-    }
-
-    setTimeout(() => {
-      snap();
-      cancel();
-    }, duration);
+      } catch (_) { /* ignore */ }
+    }, delay);
   }
 
-  function goHomeSection(sectionId) {
+  let navScrollLockY = 0;
+  let navGestureLockUntil = 0;
+
+  function armNavGestureLock(ms = 500) {
+    navGestureLockUntil = Date.now() + ms;
+  }
+  function navGestureLocked() {
+    return Date.now() < navGestureLockUntil;
+  }
+
+  function lockBodyForNav() {
+    navScrollLockY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    document.body.style.top = `-${navScrollLockY}px`;
+    document.body.classList.add('nav-open');
+  }
+
+  function unlockBodyForNav() {
+    if (!document.body.classList.contains('nav-open')) return;
+    document.body.classList.remove('nav-open');
+    document.body.style.top = '';
+    window.scrollTo(0, navScrollLockY);
+  }
+
+  function closeMobileNav() {
+    const navEl = document.getElementById('nav');
+    const burger = document.getElementById('burger');
+    if (navEl) navEl.classList.remove('open');
+    if (burger) {
+      burger.classList.remove('open');
+      burger.setAttribute('aria-expanded', 'false');
+    }
+    unlockBodyForNav();
+  }
+
+  function goHomeSection(sectionId, opts) {
     if (!sectionId) return;
+    const options = opts || {};
     closeMobileNav();
-    const b = document.getElementById('burger');
-    if (b) b.setAttribute('aria-expanded', 'false');
 
     if (isHomePath()) {
+      // Hero hint / noHash: scroll only — never leave sticky #featured in the URL
+      if (options.fromHint || options.noHash) {
+        scrollToHash(sectionId, 'smooth');
+        return;
+      }
       const next = '#' + sectionId;
       if (location.hash !== next) {
         try {
@@ -237,13 +230,14 @@ const UI = (() => {
           history.replaceState(null, '', next);
         }
       }
-      // Identical UX to heroScrollHint
       scrollToHash(sectionId, 'smooth');
-      keepHashAligned(sectionId, 2200);
+      // One light correction for sections below dynamic home content
+      if (/^(about|faq|shipping|contacts)$/.test(sectionId)) {
+        keepHashAligned(sectionId, 500);
+      }
       return;
     }
 
-    // From other pages: open home, then smooth-scroll after load
     try {
       sessionStorage.setItem('ycs_scroll_to', sectionId);
     } catch (_) { /* ignore */ }
@@ -297,15 +291,14 @@ const UI = (() => {
       const id = String(location.hash || '').replace(/^#/, '');
       if (!id) return;
       scrollToHash(id, 'smooth');
-      keepHashAligned(id, 1800);
+      if (/^(about|faq|shipping|contacts)$/.test(id)) keepHashAligned(id, 500);
     });
     window.addEventListener('popstate', () => {
       if (!isHomePath()) return;
       const id = String(location.hash || '').replace(/^#/, '');
-      if (id) {
-        scrollToHash(id, 'smooth');
-        keepHashAligned(id, 1800);
-      }
+      if (!id) return;
+      scrollToHash(id, 'smooth');
+      if (/^(about|faq|shipping|contacts)$/.test(id)) keepHashAligned(id, 500);
     });
   }
 
@@ -421,29 +414,42 @@ const UI = (() => {
           </div>
           <div class="search-results container" id="searchResults"></div>
         </div>
-      </header>`;
+      </header>
+      <button type="button" class="nav-backdrop" id="navBackdrop" aria-label="Close menu" tabindex="-1"></button>`;
 
     syncCounts();
 
     const burger = document.getElementById('burger');
     const navEl = document.getElementById('nav');
+    const backdrop = document.getElementById('navBackdrop');
+    // Keep backdrop on body so it never shares header's filter stacking context
+    if (backdrop && backdrop.parentElement !== document.body) {
+      document.body.appendChild(backdrop);
+    }
     burger.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const open = navEl.classList.toggle('open');
+      const open = !navEl.classList.contains('open');
+      navEl.classList.toggle('open', open);
       burger.classList.toggle('open', open);
       burger.setAttribute('aria-expanded', open ? 'true' : 'false');
-      document.body.classList.toggle('nav-open', open);
+      if (open) lockBodyForNav();
+      else unlockBodyForNav();
     });
+    if (backdrop) {
+      backdrop.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeMobileNav();
+      });
+    }
 
     if (!bindHashNav._backdropBound) {
       bindHashNav._backdropBound = true;
       document.addEventListener('click', (e) => {
         if (!document.body.classList.contains('nav-open')) return;
-        if (e.target.closest('#nav') || e.target.closest('#burger')) return;
+        if (e.target.closest('#nav') || e.target.closest('#burger') || e.target.closest('#navBackdrop')) return;
         closeMobileNav();
-        const b = document.getElementById('burger');
-        if (b) b.setAttribute('aria-expanded', 'false');
       });
     }
 
