@@ -14,8 +14,11 @@
   const grid = document.getElementById('pdGrid');
 
   if (!product) {
-    grid.classList.remove('pd-loading');
-    grid.removeAttribute('aria-busy');
+    if (UI.clearSkeleton) UI.clearSkeleton(grid);
+    else {
+      grid.classList.remove('pd-loading');
+      grid.removeAttribute('aria-busy');
+    }
     grid.innerHTML = `<div class="catalog-empty"><h3>${I18n.t('product_not_found')}</h3></div>`;
     return;
   }
@@ -75,8 +78,11 @@
         <p class="pd-desc">${UI.escapeHtml(I18n.txt(product.desc))}</p>
       </div>`;
     grid.innerHTML = html;
-    grid.classList.remove('pd-loading');
-    grid.removeAttribute('aria-busy');
+    if (UI.clearSkeleton) UI.clearSkeleton(grid);
+    else {
+      grid.classList.remove('pd-loading');
+      grid.removeAttribute('aria-busy');
+    }
     if (window.YCSLazy) window.YCSLazy.scan(grid);
     if (window.YCSParallax) window.YCSParallax.refresh();
     bind();

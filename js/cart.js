@@ -33,6 +33,7 @@
   const listEl = document.getElementById('cartList');
   const emptyEl = document.getElementById('cartEmpty');
   const layoutEl = document.getElementById('cartLayout');
+  if (listEl && UI.showSkeleton) UI.showSkeleton(listEl, 'cart', 3);
   const sumItems = document.getElementById('sumItems');
   const sumTotal = document.getElementById('sumTotal');
   const checkoutBtn = document.getElementById('checkoutBtn');
@@ -164,6 +165,8 @@
       layoutEl.classList.add('hidden');
       emptyEl.classList.remove('hidden');
       checkoutBtn.disabled = true;
+      if (UI.clearSkeleton) UI.clearSkeleton(listEl);
+      listEl.innerHTML = '';
       return;
     }
     layoutEl.classList.remove('hidden');
@@ -174,7 +177,7 @@
       .map(
         ({ item, p }) => `
         <div class="cart-row">
-          <a href="product.html?id=${p.id}"><img src="${p.images[0]}" alt="${UI.escapeHtml(I18n.txt(p.title))}"/></a>
+          <a href="product.html?id=${p.id}"><img src="${p.images[0]}" alt="${UI.escapeHtml(I18n.txt(p.title))}" loading="lazy" decoding="async"/></a>
           <div class="cr-info">
             <a class="cr-title" href="product.html?id=${p.id}">${UI.escapeHtml(I18n.txt(p.title))}</a>
             <div class="cr-price">${Store.formatPrice(p.price, s)} × ${item.qty}</div>
@@ -193,6 +196,7 @@
         </div>`
       )
       .join('');
+    if (UI.clearSkeleton) UI.clearSkeleton(listEl);
 
     const total = items.reduce((sum, { item, p }) => sum + p.price * item.qty, 0);
     const qty = items.reduce((sum, { item }) => sum + item.qty, 0);

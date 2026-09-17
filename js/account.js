@@ -31,7 +31,11 @@
   }
 
   function setBoot(on) {
-    if (boot) boot.classList.toggle('hidden', !on);
+    if (!boot) return;
+    boot.classList.toggle('hidden', !on);
+    boot.classList.toggle('is-skeleton', !!on);
+    if (on) boot.setAttribute('aria-busy', 'true');
+    else boot.removeAttribute('aria-busy');
   }
 
   function fillProfileForm(user) {

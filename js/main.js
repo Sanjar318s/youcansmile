@@ -64,6 +64,8 @@
       </a>`);
     }
     strip.innerHTML = cards.join('');
+    strip.classList.remove('is-skeleton');
+    strip.removeAttribute('aria-busy');
     const section = document.getElementById('contacts');
     if (section) section.hidden = cards.length === 0;
   }
@@ -87,9 +89,19 @@
 
   /* promo / news slider */
   const promoRoot = document.getElementById('promoSlider');
+  const promoSkel = document.getElementById('promoSkeleton');
   if (promoRoot && Array.isArray(s.promos) && s.promos.length && typeof PromoSlider !== 'undefined') {
+    if (promoSkel) {
+      promoSkel.hidden = true;
+      promoSkel.classList.remove('is-skeleton');
+      promoSkel.innerHTML = '';
+    }
     PromoSlider.init(promoRoot, s.promos, s.promoSlider);
   } else {
+    if (promoSkel) {
+      promoSkel.hidden = true;
+      promoSkel.innerHTML = '';
+    }
     document.getElementById('promos')?.setAttribute('hidden', '');
   }
 
@@ -193,14 +205,28 @@
   else window.addEventListener('load', bootHero);
 
   document.getElementById('heroScrollHint')?.addEventListener('click', () => {
-    document.getElementById('featured')?.scrollIntoView({ behavior: 'smooth' });
+    if (typeof UI.goHomeSection === 'function') UI.goHomeSection('featured');
+    else document.getElementById('featured')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   if (!isPurple && typeof HeroSage3D !== 'undefined') {
     HeroSage3D.refreshCards(document.getElementById('featuredGrid'));
   }
 
-  if (location.hash && typeof UI.scrollToHash === 'function') {
-    UI.keepHashAligned(location.hash, 2600);
+  // Pending scroll from another page (footer FAQ etc.) or URL hash
+  let pendingSection = '';
+  try {
+    pendingSection = sessionStorage.getItem('ycs_scroll_to') || '';
+    if (pendingSection) sessionStorage.removeItem('ycs_scroll_to');
+  } catch (_) { /* ignore */ }
+  if (!pendingSection && location.hash) pendingSection = location.hash.replace(/^#/, '');
+
+  if (pendingSection && typeof UI.goHomeSection === 'function') {
+    // Wait a tick so featured skeleton/layout exists, then smooth-scroll like the hint button
+    requestAnimationFrame(() => {
+      UI.goHomeSection(pendingSection);
+    });
+  } else if (pendingSection && typeof UI.scrollToHash === 'function') {
+    UI.keepHashAligned(pendingSection, 2600);
   }
 })();

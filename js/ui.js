@@ -157,109 +157,108 @@ const UI = (() => {
     return Date.now() < navGestureLockUntil;
   }
 
+  /** Same motion as #heroScrollHint: smooth scrollIntoView, no reload. */
   function scrollToHash(hash, behavior) {
     const id = String(hash || location.hash || '').replace(/^#/, '');
     if (!id) return false;
     const el = document.getElementById(id);
     if (!el) return false;
-    const top = el.getBoundingClientRect().top + window.pageYOffset - headerOffset();
     const mode = behavior || 'smooth';
-    window.scrollTo({ top: Math.max(0, top), behavior: mode });
+    try {
+      el.scrollIntoView({ behavior: mode, block: 'start' });
+    } catch (_) {
+      const top = el.getBoundingClientRect().top + window.pageYOffset - headerOffset();
+      window.scrollTo({ top: Math.max(0, top), behavior: mode });
+    }
     return true;
   }
 
-  /** Re-align hash target when content above it finishes loading (featured grid, images). */
+  /** After layout shifts above the target, gently re-align (does not interrupt smooth scroll). */
   function keepHashAligned(sectionId, ms) {
     const id = String(sectionId || location.hash || '').replace(/^#/, '');
-    if (!id || !/^(about|faq|shipping|contacts)$/.test(id)) return;
+    if (!id || !/^(about|faq|shipping|contacts|featured)$/.test(id)) return;
     const el = document.getElementById(id);
     if (!el) return;
 
-    const duration = ms || 2200;
+    const duration = ms || 2000;
     let stopped = false;
-    let armed = false;
-    // Let the smooth scroll start from the current position first
-    const armTimer = setTimeout(() => {
-      armed = true;
-    }, 320);
+    const armAt = Date.now() + 700;
 
     const snap = () => {
-      if (stopped || !armed) return;
+      if (stopped || Date.now() < armAt) return;
       if (location.hash.replace(/^#/, '') !== id) return;
-      scrollToHash(id, 'auto');
+      const delta = Math.abs(el.getBoundingClientRect().top - headerOffset());
+      if (delta < 48) return;
+      try {
+        el.scrollIntoView({ behavior: 'auto', block: 'start' });
+      } catch (_) {
+        /* ignore */
+      }
     };
 
-    const roots = [
-      document.getElementById('featuredGrid'),
-      document.getElementById('promos'),
-      document.getElementById('catsGrid'),
-      document.getElementById('promoSlider'),
-    ].filter(Boolean);
-
+    const roots = [document.getElementById('featuredGrid'), document.getElementById('promos')].filter(Boolean);
     let ro = null;
     if (typeof ResizeObserver !== 'undefined') {
       ro = new ResizeObserver(() => snap());
       roots.forEach((r) => ro.observe(r));
     }
-
     const onLoad = (e) => {
       if (e.target && e.target.tagName === 'IMG') snap();
     };
     document.addEventListener('load', onLoad, true);
-
-    const timers = [450, 900, 1500].map((t) => setTimeout(snap, t));
-
-    const onUserScroll = () => {
-      if (stopped || !armed || location.hash.replace(/^#/, '') !== id) return;
-      const targetTop = el.getBoundingClientRect().top + window.pageYOffset - headerOffset();
-      if (Math.abs(window.pageYOffset - targetTop) > 280) cancel();
-    };
-    window.addEventListener('scroll', onUserScroll, { passive: true });
+    const timers = [800, 1200, 1800].map((t) => setTimeout(snap, t));
 
     function cancel() {
       if (stopped) return;
       stopped = true;
-      clearTimeout(armTimer);
       timers.forEach(clearTimeout);
       if (ro) ro.disconnect();
       document.removeEventListener('load', onLoad, true);
-      window.removeEventListener('scroll', onUserScroll);
     }
 
-    function finish() {
-      if (stopped) return;
-      armed = true;
-      if (location.hash.replace(/^#/, '') === id) scrollToHash(id, 'auto');
+    setTimeout(() => {
+      snap();
       cancel();
-    }
-
-    setTimeout(finish, duration);
+    }, duration);
   }
 
   function goHomeSection(sectionId) {
     if (!sectionId) return;
+    closeMobileNav();
+    const b = document.getElementById('burger');
+    if (b) b.setAttribute('aria-expanded', 'false');
+
     if (isHomePath()) {
-      // Keep current path; only change hash — no reload
-      try {
-        history.pushState(null, '', sectionHref(sectionId));
-      } catch (_) {
-        history.replaceState(null, '', '#' + sectionId);
+      const next = '#' + sectionId;
+      if (location.hash !== next) {
+        try {
+          history.pushState(null, '', next);
+        } catch (_) {
+          history.replaceState(null, '', next);
+        }
       }
-      closeMobileNav();
-      const b = document.getElementById('burger');
-      if (b) b.setAttribute('aria-expanded', 'false');
-      // Smooth from current scroll position (e.g. footer → FAQ upward)
+      // Identical UX to heroScrollHint
       scrollToHash(sectionId, 'smooth');
-      keepHashAligned(sectionId, 2400);
+      keepHashAligned(sectionId, 2200);
       return;
     }
-    closeMobileNav();
-    location.assign('/#' + sectionId);
+
+    // From other pages: open home, then smooth-scroll after load
+    try {
+      sessionStorage.setItem('ycs_scroll_to', sectionId);
+    } catch (_) { /* ignore */ }
+    location.assign('/');
   }
 
   function bindHashNav() {
     if (bindHashNav._bound) return;
     bindHashNav._bound = true;
+
+    if ('scrollRestoration' in history) {
+      try {
+        history.scrollRestoration = 'manual';
+      } catch (_) { /* ignore */ }
+    }
 
     document.addEventListener(
       'click',
@@ -287,22 +286,25 @@ const UI = (() => {
         e.preventDefault();
         e.stopPropagation();
         if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
-        armNavGestureLock(400);
+        armNavGestureLock(350);
         goHomeSection(sectionId);
       },
       true
     );
 
     window.addEventListener('hashchange', () => {
-      if (isHomePath()) {
-        scrollToHash(location.hash, 'smooth');
-        keepHashAligned(location.hash, 1800);
-      }
+      if (!isHomePath()) return;
+      const id = String(location.hash || '').replace(/^#/, '');
+      if (!id) return;
+      scrollToHash(id, 'smooth');
+      keepHashAligned(id, 1800);
     });
     window.addEventListener('popstate', () => {
-      if (isHomePath() && location.hash) {
-        scrollToHash(location.hash, 'smooth');
-        keepHashAligned(location.hash, 1800);
+      if (!isHomePath()) return;
+      const id = String(location.hash || '').replace(/^#/, '');
+      if (id) {
+        scrollToHash(id, 'smooth');
+        keepHashAligned(id, 1800);
       }
     });
   }
@@ -315,6 +317,7 @@ const UI = (() => {
     const s = await getSettings();
     const root = document.getElementById('header-root');
     if (!root) return;
+    root.classList.remove('is-skeleton');
 
     const theme = (document.documentElement.getAttribute('data-theme') || 'sage').toLowerCase();
     const isPurple = theme === 'purple';
@@ -458,7 +461,7 @@ const UI = (() => {
       });
     });
 
-    if (location.hash) {
+    if (location.hash && !isHomePath()) {
       requestAnimationFrame(() => scrollToHash(location.hash));
       setTimeout(() => scrollToHash(location.hash), 200);
     }
@@ -553,6 +556,7 @@ const UI = (() => {
     const s = await getSettings();
     const root = document.getElementById('footer-root');
     if (!root) return;
+    root.classList.remove('is-skeleton');
 
     const theme = (document.documentElement.getAttribute('data-theme') || 'sage').toLowerCase();
     const isPurple = theme === 'purple';
@@ -945,12 +949,183 @@ const UI = (() => {
     </article>`;
   }
 
-  function showSkeletonGrid(container, count = 8) {
+  function skeletonCartRowHTML() {
+    return `<div class="cart-row cart-row-skeleton" aria-hidden="true">
+      <div class="skel-block skel-thumb"></div>
+      <div class="cr-info">
+        <div class="skel-line w70"></div>
+        <div class="skel-line w40"></div>
+        <div class="skel-line w30"></div>
+      </div>
+      <div class="cr-right"><span class="skel-btn skel-qty"></span></div>
+    </div>`;
+  }
+
+  function skeletonOrderHTML() {
+    return `<article class="account-order card order-skeleton" aria-hidden="true">
+      <div class="skel-line w45"></div>
+      <div class="skel-line w80"></div>
+      <div class="skel-line w60"></div>
+      <div class="skel-actions"><span class="skel-btn"></span><span class="skel-btn"></span></div>
+    </article>`;
+  }
+
+  function skeletonProductHTML() {
+    return `<div class="pd-skeleton" aria-hidden="true">
+      <div class="pd-skel-gallery">
+        <div class="skel-block skel-pd-main"></div>
+        <div class="pd-skel-thumbs">
+          <span class="skel-block skel-pd-thumb"></span>
+          <span class="skel-block skel-pd-thumb"></span>
+          <span class="skel-block skel-pd-thumb"></span>
+        </div>
+      </div>
+      <div class="pd-skel-info">
+        <div class="skel-line w30"></div>
+        <div class="skel-line w80 skel-title"></div>
+        <div class="skel-line w40"></div>
+        <div class="skel-line w55"></div>
+        <div class="skel-line w90"></div>
+        <div class="skel-line w85"></div>
+        <div class="skel-actions"><span class="skel-btn"></span><span class="skel-btn"></span></div>
+      </div>
+    </div>`;
+  }
+
+  function skeletonPromoHTML() {
+    return `<div class="promo-skeleton" aria-hidden="true">
+      <div class="skel-block skel-promo"></div>
+      <div class="skel-promo-meta">
+        <div class="skel-line w40"></div>
+        <div class="skel-line w70"></div>
+      </div>
+    </div>`;
+  }
+
+  function skeletonChipsHTML(count = 5) {
+    const n = Math.max(3, Math.min(Number(count) || 5, 10));
+    return Array.from({ length: n }, (_, i) =>
+      `<span class="skel-chip" style="width:${56 + (i % 3) * 18}px" aria-hidden="true"></span>`
+    ).join('');
+  }
+
+  function skeletonContactsHTML(count = 3) {
+    return Array.from({ length: Math.max(2, Math.min(count, 4)) }, () =>
+      `<div class="contact-card contact-skeleton" aria-hidden="true">
+        <div class="skel-block skel-ico"></div>
+        <div><div class="skel-line w50"></div><div class="skel-line w70"></div></div>
+      </div>`
+    ).join('');
+  }
+
+  function skeletonFormHTML() {
+    return `<div class="form-skeleton" aria-hidden="true">
+      <div class="skel-line w35"></div>
+      <div class="skel-block skel-input"></div>
+      <div class="skel-line w35"></div>
+      <div class="skel-block skel-input"></div>
+      <div class="skel-line w35"></div>
+      <div class="skel-block skel-input tall"></div>
+      <div class="skel-actions"><span class="skel-btn"></span></div>
+    </div>`;
+  }
+
+  function skeletonStatusHTML() {
+    return `<div class="os-skeleton" aria-hidden="true">
+      <div class="skel-line w50 skel-title"></div>
+      <div class="skel-line w70"></div>
+      <div class="skel-block skel-status-bar"></div>
+      <div class="skel-line w90"></div>
+      <div class="skel-line w80"></div>
+      <div class="skel-actions"><span class="skel-btn"></span><span class="skel-btn"></span></div>
+    </div>`;
+  }
+
+  function skeletonHeaderHTML() {
+    return `<header class="header header-skeleton" aria-hidden="true">
+      <div class="container header-inner">
+        <span class="skel-block skel-burger"></span>
+        <span class="skel-block skel-logo"></span>
+        <div class="header-actions">
+          <span class="skel-block skel-icon"></span>
+          <span class="skel-block skel-icon"></span>
+          <span class="skel-block skel-icon"></span>
+        </div>
+      </div>
+    </header>`;
+  }
+
+  function skeletonHTML(type, count) {
+    switch (String(type || 'cards')) {
+      case 'cart':
+        return Array.from({ length: Math.max(1, Math.min(count || 3, 5)) }, skeletonCartRowHTML).join('');
+      case 'orders':
+        return Array.from({ length: Math.max(1, Math.min(count || 3, 6)) }, skeletonOrderHTML).join('');
+      case 'product':
+        return skeletonProductHTML();
+      case 'promo':
+        return skeletonPromoHTML();
+      case 'chips':
+        return skeletonChipsHTML(count);
+      case 'contacts':
+        return skeletonContactsHTML(count);
+      case 'form':
+        return skeletonFormHTML();
+      case 'status':
+        return skeletonStatusHTML();
+      case 'header':
+        return skeletonHeaderHTML();
+      case 'cards':
+      default:
+        return Array.from({ length: Math.max(2, Math.min(count || 8, 12)) }, skeletonCardHTML).join('');
+    }
+  }
+
+  function showSkeleton(container, type = 'cards', count) {
     if (!container) return;
-    const n = Math.max(2, Math.min(Number(count) || 8, 12));
+    const t = type || container.dataset.skeleton || 'cards';
+    const n = count != null ? count : Number(container.dataset.skeletonCount) || undefined;
     container.classList.add('is-skeleton');
     container.setAttribute('aria-busy', 'true');
-    container.innerHTML = Array.from({ length: n }, skeletonCardHTML).join('');
+    container.innerHTML = skeletonHTML(t, n);
+  }
+
+  function showSkeletonGrid(container, count = 8) {
+    showSkeleton(container, 'cards', count);
+  }
+
+  function clearSkeleton(container) {
+    if (!container) return;
+    container.classList.remove('is-skeleton', 'catalog-loading', 'pd-loading');
+    container.removeAttribute('aria-busy');
+  }
+
+  function bootPageSkeletons(root) {
+    const scope = root && root.querySelectorAll ? root : document;
+    scope.querySelectorAll('[data-skeleton]').forEach((el) => {
+      if (el.dataset.skeletonReady === '1') return;
+      // Keep existing first-paint skeletons (e.g. featured cards already in HTML)
+      if (el.classList.contains('is-skeleton') && el.querySelector('.card-skeleton, .skel-block, .skel-line, .skel-chip, .promo-skeleton, .pd-skeleton, .os-skeleton, .cart-row-skeleton, .order-skeleton, .form-skeleton, .contact-skeleton')) {
+        el.dataset.skeletonReady = '1';
+        return;
+      }
+      if (el.childElementCount > 0 && !el.classList.contains('is-skeleton')) return;
+      el.dataset.skeletonReady = '1';
+      showSkeleton(el, el.dataset.skeleton, el.dataset.skeletonCount);
+    });
+    const headerRoot = document.getElementById('header-root');
+    if (headerRoot && !headerRoot.childElementCount) {
+      headerRoot.innerHTML = skeletonHeaderHTML();
+      headerRoot.classList.add('is-skeleton');
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => bootPageSkeletons());
+    } else {
+      bootPageSkeletons();
+    }
   }
 
   async function renderGrid(container, products, currency) {
@@ -1129,7 +1304,11 @@ const UI = (() => {
     cardHTML,
     renderGrid,
     showSkeletonGrid,
+    showSkeleton,
+    clearSkeleton,
+    bootPageSkeletons,
     skeletonCardHTML,
+    skeletonHTML,
     startCardSlides,
     bindCardEvents,
     toast,
@@ -1147,6 +1326,7 @@ const UI = (() => {
     readFileAsDataURL,
     scrollToHash,
     keepHashAligned,
+    goHomeSection,
     headerOffset,
   };
 })();

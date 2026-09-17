@@ -1913,6 +1913,165 @@ html[data-theme='purple'] .about-sage-text p { color: var(--text-2); }
   height: 36px;
   border-radius: 999px;
 }
+.skel-line.w30 { width: 30%; }
+.skel-line.w35 { width: 35%; }
+.skel-line.w45 { width: 45%; }
+.skel-line.w50 { width: 50%; }
+.skel-line.w60 { width: 60%; }
+.skel-line.w70 { width: 70%; }
+.skel-line.w85 { width: 85%; }
+.skel-line.w90 { width: 90%; }
+.skel-line.skel-title { height: 22px; margin: 6px 0 12px; }
+
+/* Cart row skeleton */
+.cart-row-skeleton {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border, rgba(0,0,0,.08));
+  pointer-events: none;
+}
+.skel-thumb { width: 72px; height: 72px; border-radius: 14px; }
+.cart-row-skeleton .cr-info { display: flex; flex-direction: column; gap: 8px; }
+.skel-qty { width: 88px; height: 36px; border-radius: 999px; display: block; }
+
+/* Order / account skeletons */
+.order-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  pointer-events: none;
+}
+.account-orders.is-skeleton,
+#ordersList.is-skeleton {
+  min-height: 180px;
+}
+
+/* Product detail skeleton */
+.pd-skeleton {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  width: 100%;
+}
+.pd-skel-gallery { display: flex; flex-direction: column; gap: 12px; }
+.skel-pd-main { aspect-ratio: 1; width: 100%; border-radius: var(--radius-lg, 18px); }
+.pd-skel-thumbs { display: flex; gap: 10px; }
+.skel-pd-thumb { width: 72px; height: 72px; border-radius: 12px; display: block; }
+.pd-skel-info { display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 860px) {
+  .pd-skeleton { grid-template-columns: 1fr 1fr; align-items: start; }
+}
+.pd-grid.is-skeleton,
+.pd-grid.pd-loading {
+  min-height: 320px;
+}
+.pd-grid.is-skeleton::after,
+.pd-grid.pd-loading.is-skeleton::after {
+  display: none;
+}
+
+/* Promo skeleton */
+.promo-skeleton { display: flex; flex-direction: column; gap: 12px; }
+.skel-promo {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 20px;
+  min-height: 160px;
+}
+.skel-promo-meta { display: flex; flex-direction: column; gap: 8px; padding: 0 4px; }
+.promo-slider.is-skeleton,
+#promoSlider.is-skeleton {
+  display: block !important;
+  min-height: 200px;
+}
+
+/* Chips / filters */
+.skel-chip {
+  display: inline-block;
+  height: 36px;
+  border-radius: 999px;
+  margin: 0 6px 6px 0;
+  vertical-align: middle;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--text-3, #999) 12%, transparent) 0%,
+    color-mix(in srgb, var(--text-3, #999) 22%, transparent) 45%,
+    color-mix(in srgb, var(--text-3, #999) 12%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: catalog-shimmer 1.15s ease-in-out infinite;
+}
+.category-filters.is-skeleton,
+#catChips.is-skeleton {
+  min-height: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Contacts */
+.contact-skeleton {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  pointer-events: none;
+}
+.skel-ico { width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0; }
+.contact-strip.is-skeleton {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 700px) {
+  .contact-strip.is-skeleton { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Forms / status */
+.form-skeleton { display: flex; flex-direction: column; gap: 10px; max-width: 520px; }
+.skel-input { height: 44px; border-radius: 12px; width: 100%; }
+.skel-input.tall { height: 96px; }
+.os-skeleton { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
+.skel-status-bar { height: 48px; border-radius: 14px; width: 100%; }
+
+/* Header skeleton */
+.header-skeleton { pointer-events: none; }
+.header-skeleton .skel-burger,
+.header-skeleton .skel-icon {
+  width: 40px; height: 40px; border-radius: 12px; display: block;
+}
+.header-skeleton .skel-logo {
+  width: 120px; height: 36px; border-radius: 10px; display: block; margin-right: auto;
+}
+#header-root.is-skeleton { min-height: var(--header-h, 72px); }
+
+/* Generic page boot skeleton */
+.page-skeleton-wrap.is-skeleton {
+  min-height: 200px;
+}
+.account-boot.is-skeleton,
+#accountBoot:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 0 24px;
+}
+.account-boot .skel-block.skel-account {
+  width: min(100%, 420px);
+  height: 160px;
+  border-radius: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skel-chip {
+    animation: none;
+  }
+}
 .products-grid.is-skeleton {
   min-height: 240px;
 }

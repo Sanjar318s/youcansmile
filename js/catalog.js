@@ -45,6 +45,8 @@
           `<button class="chip ${state.cat === c.id ? 'active' : ''}" data-cat="${c.id}">${c.icon || ''} ${I18n.txt(c.name)}</button>`
       )
       .join('');
+  catChips.classList.remove('is-skeleton');
+  catChips.removeAttribute('aria-busy');
   catChips.addEventListener('click', (e) => {
     const chip = e.target.closest('.chip');
     if (!chip) return;

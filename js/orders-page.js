@@ -8,9 +8,18 @@
 
   const guest = document.getElementById('ordersGuest');
   const userBox = document.getElementById('ordersUser');
+  const ordersBoot = document.getElementById('ordersBoot');
   const ordersList = document.getElementById('ordersList');
   const ordersEmpty = document.getElementById('ordersEmpty');
   let settings = {};
+
+  function hideBoot() {
+    if (!ordersBoot) return;
+    ordersBoot.classList.add('hidden');
+    ordersBoot.classList.remove('is-skeleton');
+    ordersBoot.innerHTML = '';
+    ordersBoot.removeAttribute('aria-busy');
+  }
 
   await Promise.all([UI.renderHeader('orders'), UI.renderFooter()]);
   if (typeof Chat !== 'undefined') Chat.init();
@@ -19,12 +28,14 @@
   settings = (await Api.getSettings().catch(() => ({}))) || {};
 
   if (!me || me.role !== 'customer') {
+    hideBoot();
     if (guest) guest.classList.remove('hidden');
     if (userBox) userBox.classList.add('hidden');
     return;
   }
   if (guest) guest.classList.add('hidden');
   if (userBox) userBox.classList.remove('hidden');
+  if (ordersList && UI.showSkeleton) UI.showSkeleton(ordersList, 'orders', 3);
 
   function statusLabel(status) {
     const key = {
@@ -67,6 +78,8 @@
   orders = orders.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   ordersList.innerHTML = '';
+  if (UI.clearSkeleton) UI.clearSkeleton(ordersList);
+  hideBoot();
   ordersEmpty.classList.toggle('hidden', orders.length > 0);
   orders.forEach((o) => {
     const card = document.createElement('article');

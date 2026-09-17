@@ -32,6 +32,8 @@
   if (!card) return;
 
   if (!id) {
+    card.classList.remove('is-skeleton');
+    card.removeAttribute('aria-busy');
     card.innerHTML = `<h1>${I18n.t('order_status_title')}</h1><p class="os-empty">${I18n.t('order_status_missing')}</p>`;
     applyI18n(card);
     return;
@@ -39,6 +41,8 @@
 
   const order = await Api.getOrder(id);
   if (!order) {
+    card.classList.remove('is-skeleton');
+    card.removeAttribute('aria-busy');
     card.innerHTML = `<h1>${I18n.t('order_status_title')}</h1><p class="os-empty">${I18n.t('order_status_not_found')}</p>`;
     return;
   }
@@ -85,6 +89,8 @@
       <a class="btn btn-secondary" href="index.html">${I18n.t('order_status_home')}</a>
     </div>
   `;
+  card.classList.remove('is-skeleton');
+  card.removeAttribute('aria-busy');
 
   document.getElementById('osHelpBtn')?.addEventListener('click', async () => {
     const chat =
