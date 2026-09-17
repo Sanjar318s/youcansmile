@@ -47,10 +47,11 @@ const UI = (() => {
       <p class="pay-recipient">${I18n.t('pay_recipient')}: <b>${escapeHtml(recipient)}</b></p>
       <p class="pay-note">${I18n.t('pay_deadline_note')}</p>
       <label class="pay-receipt-label">
-        <input type="file" accept="image/*" class="js-receipt-input"/>
+        <input type="file" accept="image/*" capture="environment" class="js-receipt-input"/>
         <span class="pay-receipt-btn">${I18n.t('pay_attach_receipt')}</span>
         <span class="pay-receipt-name" data-empty="1">${I18n.t('pay_receipt_none')}</span>
-      </label>`;
+      </label>
+      <p class="pay-receipt-hint">${I18n.t('pay_receipt_required')}</p>`;
   }
 
   function bindPayRequisites(root) {
@@ -91,7 +92,65 @@ const UI = (() => {
   async function getReceiptDataURL(root) {
     const input = (root || document).querySelector('.js-receipt-input');
     if (!input || !input.files || !input.files[0]) return '';
-    return readFileAsDataURL(input.files[0]);
+    const file = input.files[0];
+    try {
+      if (typeof ImageOptimize !== 'undefined' && ImageOptimize.process) {
+        const out = await ImageOptimize.process(file, {
+          maxEdge: 1400,
+          jpegQuality: 0.82,
+          webpQuality: 0.78,
+          contrast: 1,
+          saturate: 1,
+          brightness: 1,
+        });
+        return out.dataUrl || '';
+      }
+    } catch (_) { /* fall through */ }
+    return readFileAsDataURL(file);
+  }
+
+  function headerOffset() {
+    const header = document.querySelector('.header');
+    if (header) return Math.ceil(header.getBoundingClientRect().height) + 8;
+    return 80;
+  }
+
+  function scrollToHash(hash) {
+    const id = String(hash || location.hash || '').replace(/^#/, '');
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.pageYOffset - headerOffset();
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }
+
+  function bindHashNav() {
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest('a[href*="#"]');
+      if (!a) return;
+      const href = a.getAttribute('href') || '';
+      const m = href.match(/^(?:index\.html)?#([A-Za-z][\w-]*)/);
+      if (!m) return;
+      const onHome =
+        /(?:^|\/)(index\.html)?$/.test(location.pathname.replace(/\/+$/, '/') || '/') ||
+        location.pathname.endsWith('/') ||
+        /index\.html$/i.test(location.pathname);
+      if (!onHome && !/index\.html/i.test(href)) return;
+      if (!onHome) return; // let browser navigate to index.html#...
+      e.preventDefault();
+      history.replaceState(null, '', '#' + m[1]);
+      scrollToHash(m[1]);
+      const navEl = document.getElementById('nav');
+      const burger = document.getElementById('burger');
+      if (navEl) navEl.classList.remove('open');
+      if (burger) burger.classList.remove('open');
+      document.body.classList.remove('nav-open');
+    });
+  }
+
+  if (typeof document !== 'undefined') {
+    bindHashNav();
+    window.addEventListener('hashchange', () => scrollToHash(location.hash));
   }
 
   async function renderHeader(active = '') {
@@ -204,9 +263,22 @@ const UI = (() => {
     const burger = document.getElementById('burger');
     const navEl = document.getElementById('nav');
     burger.addEventListener('click', () => {
-      navEl.classList.toggle('open');
-      burger.classList.toggle('open');
+      const open = navEl.classList.toggle('open');
+      burger.classList.toggle('open', open);
+      document.body.classList.toggle('nav-open', open);
     });
+    navEl.querySelectorAll('a').forEach((a) => {
+      a.addEventListener('click', () => {
+        navEl.classList.remove('open');
+        burger.classList.remove('open');
+        document.body.classList.remove('nav-open');
+      });
+    });
+
+    if (location.hash) {
+      requestAnimationFrame(() => scrollToHash(location.hash));
+      setTimeout(() => scrollToHash(location.hash), 120);
+    }
 
     const settingsToggle = document.getElementById('settingsToggle');
     const settingsPanelEl = document.getElementById('settingsPanel');
@@ -301,17 +373,16 @@ const UI = (() => {
 
     const theme = (document.documentElement.getAttribute('data-theme') || 'sage').toLowerCase();
     const isPurple = theme === 'purple';
-    const tg = normalizeContactHref('telegram', pickContact(s, 'telegram'));
     const ig = normalizeContactHref('instagram', pickContact(s, 'instagram'));
     const wa = normalizeContactHref('whatsapp', pickContact(s, 'whatsapp'));
     const em = pickContact(s, 'email');
     const tgChannel = normalizeContactHref('telegram', s.telegramChannel || '');
-    const hasAnyContact = !!(tg || ig || wa || em);
+    const hasAnyContact = !!(tgChannel || ig || wa || em);
     const socialIcons = [
       ig ? `<a href="${escapeHtml(ig)}" target="_blank" rel="noopener" aria-label="Instagram">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>
               </a>` : '',
-      tg ? `<a href="${escapeHtml(tg)}" target="_blank" rel="noopener" aria-label="Telegram">
+      tgChannel ? `<a href="${escapeHtml(tgChannel)}" target="_blank" rel="noopener" aria-label="Telegram">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 4.3 3.7 11.1c-1.2.5-1.2 1.2-.2 1.5l4.6 1.4 1.8 5.4c.2.7.4.9 1 .9.5 0 .7-.2 1-.6l2.7-4.4 5.6 4.1c1 .6 1.7.3 2-.9L23 5.5c.3-1.3-.5-1.9-1.5-1.2z"/></svg>
               </a>` : '',
       wa ? `<a href="${escapeHtml(wa)}" target="_blank" rel="noopener" aria-label="WhatsApp">
@@ -343,7 +414,7 @@ const UI = (() => {
           ${(socialIcons || tgChannel) ? `<div class="fs-col">
             <h4>${I18n.t('sage_footer_follow')}</h4>
             ${socialIcons ? `<div class="fs-social">${socialIcons}</div>` : ''}
-            ${tgChannel ? `<a class="fs-channel" href="${escapeHtml(tgChannel)}" target="_blank" rel="noopener">+ Youcansmile Канал</a>` : ''}
+            ${tgChannel ? `<a class="fs-channel" href="${escapeHtml(tgChannel)}" target="_blank" rel="noopener">${I18n.t('footer_tg_channel')}</a>` : ''}
           </div>` : ''}
         </div>
         <div class="container footer-bottom">
@@ -858,5 +929,7 @@ const UI = (() => {
     bindPayRequisites,
     getReceiptDataURL,
     readFileAsDataURL,
+    scrollToHash,
+    headerOffset,
   };
 })();

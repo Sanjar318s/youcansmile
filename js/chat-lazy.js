@@ -21,19 +21,31 @@ const ChatLazy = (() => {
     if (typeof Chat !== 'undefined') return Promise.resolve(Chat);
     if (loading) return loading;
     detectSrc();
-    loading = new Promise((resolve, reject) => {
-      const el = document.createElement('script');
-      el.src = src;
-      el.async = true;
-      el.onload = () => {
-        try {
-          if (typeof Chat !== 'undefined' && Chat.init) Chat.init();
-        } catch (_) {}
-        resolve(typeof Chat !== 'undefined' ? Chat : null);
-      };
-      el.onerror = () => reject(new Error('chat-load-fail'));
-      document.head.appendChild(el);
-    });
+    loading = (async () => {
+      if (typeof ImageOptimize === 'undefined') {
+        await new Promise((resolve, reject) => {
+          const imgOpt = document.createElement('script');
+          imgOpt.src = 'js/image-optimize.js?v=20260813af';
+          imgOpt.async = true;
+          imgOpt.onload = resolve;
+          imgOpt.onerror = resolve;
+          document.head.appendChild(imgOpt);
+        });
+      }
+      return new Promise((resolve, reject) => {
+        const el = document.createElement('script');
+        el.src = src;
+        el.async = true;
+        el.onload = () => {
+          try {
+            if (typeof Chat !== 'undefined' && Chat.init) Chat.init();
+          } catch (_) {}
+          resolve(typeof Chat !== 'undefined' ? Chat : null);
+        };
+        el.onerror = () => reject(new Error('chat-load-fail'));
+        document.head.appendChild(el);
+      });
+    })();
     return loading;
   }
 

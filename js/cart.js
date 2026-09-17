@@ -222,6 +222,13 @@
   applyI18n(orderForm);
 
   checkoutBtn.addEventListener('click', async () => {
+    if (!me || me.role !== 'customer') {
+      UI.toast(I18n.t('order_login_required'));
+      setTimeout(() => {
+        location.href = 'account.html?next=' + encodeURIComponent('cart.html');
+      }, 600);
+      return;
+    }
     orderForm.classList.toggle('hidden');
     if (!orderForm.classList.contains('hidden')) {
       syncFulfillmentUI();
@@ -229,8 +236,22 @@
     }
   });
 
+  orderForm.addEventListener(
+    'invalid',
+    (ev) => {
+      const t = ev.target;
+      if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    },
+    true
+  );
+
   orderForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!me || me.role !== 'customer') {
+      UI.toast(I18n.t('order_login_required'));
+      location.href = 'account.html?next=' + encodeURIComponent('cart.html');
+      return;
+    }
     const name = document.getElementById('oName').value.trim();
     const phone = document.getElementById('oPhone').value.trim();
     const contactUser = document.getElementById('oContactUser').value.trim();
@@ -245,6 +266,12 @@
 
     if (!name || !phone || !contactUser) {
       UI.toast(I18n.t('order_required'));
+      const firstBad = !name
+        ? document.getElementById('oName')
+        : !phone
+          ? document.getElementById('oPhone')
+          : document.getElementById('oContactUser');
+      if (firstBad) firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     if (fulfillment === 'delivery' && payment === 'cash') {
@@ -266,6 +293,8 @@
       paymentReceipt = await UI.getReceiptDataURL(payRequisites);
       if (!paymentReceipt) {
         UI.toast(I18n.t('pay_receipt_required'));
+        const receiptInput = payRequisites.querySelector('.js-receipt-input');
+        if (receiptInput) receiptInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
     }
@@ -280,60 +309,73 @@
       .filter((i) => i.title);
     const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
     const pickupPoint = fulfillment === 'pickup' ? pickupSelect.value : '';
+    const submitBtn = orderForm.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
 
-    const order = await Api.createOrder({
-      type: 'cart',
-      customerId: me && me.role === 'customer' ? me.id : undefined,
-      fulfillment,
-      payment,
-      pickupPoint,
-      coords: fulfillment === 'delivery' ? picked.coords : null,
-      paymentReceipt,
-      customer: {
-        name,
-        phone,
-        contactChannel,
-        contact: contactUser,
-        address,
-        note: document.getElementById('oNote').value.trim(),
-      },
-      items,
-      total,
-      currency: 'UZS',
-      displayCurrency: Store.getDisplayCurrency(),
-      lang: I18n.lang,
-    });
+    try {
+      const order = await Api.createOrder({
+        type: 'cart',
+        customerId: me.id,
+        fulfillment,
+        payment,
+        pickupPoint,
+        coords: fulfillment === 'delivery' ? picked.coords : null,
+        paymentReceipt,
+        customer: {
+          name,
+          phone,
+          contactChannel,
+          contact: contactUser,
+          address,
+          note: document.getElementById('oNote').value.trim(),
+        },
+        items,
+        total,
+        currency: 'UZS',
+        displayCurrency: Store.getDisplayCurrency(),
+        lang: I18n.lang,
+      });
 
-    orderForm.classList.add('hidden');
-    orderOk.classList.remove('hidden');
-    checkoutBtn.hidden = true;
+      orderForm.classList.add('hidden');
+      orderOk.classList.remove('hidden');
+      checkoutBtn.hidden = true;
 
-    const payLabel = payment === 'cash' ? I18n.t('pay_cash') : I18n.t('pay_card');
-    const fulfillLabel = fulfillment === 'pickup' ? I18n.t('fulfill_pickup') : I18n.t('fulfill_delivery');
-    const channelLabel = contactChannel === 'instagram' ? I18n.t('contact_instagram') : I18n.t('contact_telegram');
-    const msg = encodeURIComponent(
-      `🛍️ ${I18n.t('order_title')} — ${Store.orderNumberLabel(order)}\n` +
-        `\n${items.map((i) => `• ${i.title} × ${i.qty} = ${Store.formatPrice(i.price * i.qty, s)}`).join('\n')}\n` +
-        `\n${I18n.t('cart_total')}: ${Store.formatPrice(total, s)}\n` +
-        `\n📦 ${fulfillLabel}\n💳 ${payLabel}\n` +
-        `\n👤 ${name}\n📞 ${phone}\n💬 ${channelLabel}: ${contactUser}` +
-        (address ? `\n📍 ${address}` : '') +
-        (fulfillment === 'delivery' && picked.coords ? `\n🧭 ${picked.coords.join(', ')}` : '') +
-        (document.getElementById('oNote').value.trim() ? `\n📝 ${document.getElementById('oNote').value.trim()}` : '') +
-        (payment === 'card' ? `\n\n${s.cardRecipient || 'Mirsagatova Madina'}\n${s.cardNumber || ''}` : '')
-    );
+      const payLabel = payment === 'cash' ? I18n.t('pay_cash') : I18n.t('pay_card');
+      const fulfillLabel = fulfillment === 'pickup' ? I18n.t('fulfill_pickup') : I18n.t('fulfill_delivery');
+      const channelLabel = contactChannel === 'instagram' ? I18n.t('contact_instagram') : I18n.t('contact_telegram');
+      const msg = encodeURIComponent(
+        `🛍️ ${I18n.t('order_title')} — ${Store.orderNumberLabel(order)}\n` +
+          `\n${items.map((i) => `• ${i.title} × ${i.qty} = ${Store.formatPrice(i.price * i.qty, s)}`).join('\n')}\n` +
+          `\n${I18n.t('cart_total')}: ${Store.formatPrice(total, s)}\n` +
+          `\n📦 ${fulfillLabel}\n💳 ${payLabel}\n` +
+          `\n👤 ${name}\n📞 ${phone}\n💬 ${channelLabel}: ${contactUser}` +
+          (address ? `\n📍 ${address}` : '') +
+          (fulfillment === 'delivery' && picked.coords ? `\n🧭 ${picked.coords.join(', ')}` : '') +
+          (document.getElementById('oNote').value.trim() ? `\n📝 ${document.getElementById('oNote').value.trim()}` : '') +
+          (payment === 'card' ? `\n\n${s.cardRecipient || 'Mirsagatova Madina'}\n${s.cardNumber || ''}` : '')
+      );
 
-    const waHref = UI.normalizeContactHref('whatsapp', (s.contacts && s.contacts.whatsapp) || '');
-    const tgHref = UI.normalizeContactHref('telegram', (s.contacts && s.contacts.telegram) || '');
-    orderLinks.innerHTML =
-      (waHref
-        ? `<a class="btn btn-sm btn-gold" target="_blank" rel="noopener" href="${waHref}?text=${msg}">${I18n.t('order_send_whatsapp')}</a>`
-        : '') +
-      (tgHref
-        ? `<a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="${tgHref}?text=${msg}">${I18n.t('order_send_telegram')}</a>`
-        : '');
+      const waHref = UI.normalizeContactHref('whatsapp', (s.contacts && s.contacts.whatsapp) || '');
+      const tgHref = UI.normalizeContactHref('telegram', (s.contacts && s.contacts.telegram) || '');
+      orderLinks.innerHTML =
+        (waHref
+          ? `<a class="btn btn-sm btn-gold" target="_blank" rel="noopener" href="${waHref}?text=${msg}">${I18n.t('order_send_whatsapp')}</a>`
+          : '') +
+        (tgHref
+          ? `<a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="${tgHref}?text=${msg}">${I18n.t('order_send_telegram')}</a>`
+          : '');
 
-    Store.clearCart();
-    UI.syncCounts();
+      Store.clearCart();
+      UI.syncCounts();
+    } catch (err) {
+      const emsg = (err && err.message) || '';
+      if (emsg === 'auth' || emsg === 'login_required') {
+        UI.toast(I18n.t('order_login_required'));
+        location.href = 'account.html?next=' + encodeURIComponent('cart.html');
+      } else {
+        UI.toast(emsg || I18n.t('order_send_fail'));
+      }
+      if (submitBtn) submitBtn.disabled = false;
+    }
   });
 })();

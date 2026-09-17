@@ -28,22 +28,21 @@
   const aboutP = document.querySelector('#about [data-i18n="sage_philosophy_text"]');
   if (aboutP && I18n.txt(s.about)) aboutP.textContent = I18n.txt(s.about);
 
-  /* contacts: hide a card when the admin field is empty */
+  /* contacts: channel only for Telegram (no personal username) */
   const strip = document.getElementById('contactStrip');
   if (strip) {
-    const tgRaw = UI.pickContact(s, 'telegram');
+    const tgChannel = UI.normalizeContactHref('telegram', s.telegramChannel || '');
     const igRaw = UI.pickContact(s, 'instagram');
     const em = UI.pickContact(s, 'email');
     const waRaw = UI.pickContact(s, 'whatsapp');
-    const tg = UI.normalizeContactHref('telegram', tgRaw);
     const ig = UI.normalizeContactHref('instagram', igRaw);
     const wa = UI.normalizeContactHref('whatsapp', waRaw);
     const esc = UI.escapeHtml;
     const cards = [];
-    if (tg) {
-      cards.push(`<a class="contact-card" href="${esc(tg)}" target="_blank" rel="noopener">
+    if (tgChannel) {
+      cards.push(`<a class="contact-card" href="${esc(tgChannel)}" target="_blank" rel="noopener">
         <div class="cc-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></div>
-        <div><b>Telegram</b><span>${esc(UI.contactLabel(tgRaw || tg))}</span></div>
+        <div><b>Telegram</b><span>${esc(I18n.t('footer_tg_channel'))}</span></div>
       </a>`);
     }
     if (ig) {
@@ -176,5 +175,10 @@
 
   if (!isPurple && typeof HeroSage3D !== 'undefined') {
     HeroSage3D.refreshCards(document.getElementById('featuredGrid'));
+  }
+
+  if (location.hash && typeof UI.scrollToHash === 'function') {
+    requestAnimationFrame(() => UI.scrollToHash(location.hash));
+    setTimeout(() => UI.scrollToHash(location.hash), 150);
   }
 })();

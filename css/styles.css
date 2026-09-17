@@ -232,6 +232,47 @@ html[data-theme='purple'] .card:hover {
 ul { list-style: none; }
 .hidden { display: none !important; }
 
+/* Anchor targets under sticky header */
+#about,
+#faq,
+#shipping,
+#contacts,
+#featured {
+  scroll-margin-top: calc(var(--header-h, 72px) + env(safe-area-inset-top, 0px) + 12px);
+}
+#about,
+#shipping {
+  padding-top: clamp(12px, 3vw, 28px);
+}
+
+body.nav-open {
+  overflow: hidden;
+}
+body.nav-open::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  top: calc(var(--header-h, 72px) + env(safe-area-inset-top, 0px));
+  background: rgba(10, 8, 6, 0.35);
+  z-index: 100;
+}
+
+.cart-page-pad,
+#orderForm {
+  scroll-margin-bottom: 100px;
+}
+body:not(.admin-body) {
+  padding-bottom: 0;
+}
+body:not(.admin-body) .footer-sage {
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+body:not(.admin-body) .cart-layout,
+body:not(.admin-body) #orderForm.adm-form,
+body:not(.admin-body) #orderForm {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
 /* Scroll reveal — whole block/card only (content inside is never delayed separately) */
 .reveal {
   opacity: 0;
@@ -1333,7 +1374,7 @@ html:not([data-theme='purple']) .hero-scroll-hint {
 
 .card-fav {
   position: absolute; top: 10px; right: 10px; z-index: 3;
-  width: 36px; height: 36px; border-radius: 50%;
+  width: 44px; height: 44px; border-radius: 50%;
   background: var(--bg-card-solid); border: 1px solid var(--border-soft);
   display: grid; place-items: center; color: var(--text-2);
   transition: var(--transition);
@@ -2007,7 +2048,17 @@ html[data-theme='purple'] .about-sage-text p { color: var(--text-2); }
 .contact-card span { color: var(--text-3); font-size: 0.85rem; }
 
 /* ---------- toasts ---------- */
-.toast-box { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: none; }
+.toast-box {
+  position: fixed;
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+  pointer-events: none;
+}
 .toast {
   background: var(--bg-card-solid); backdrop-filter: blur(16px);
   border: 1px solid var(--border); color: var(--text);
@@ -3291,7 +3342,9 @@ html[data-theme='purple'] .order-card .oc-badge.cart {
 @media (max-width: 860px) {
   .burger { display: flex; }
   .nav {
-    position: fixed; top: var(--header-h); left: 0; right: 0;
+    position: fixed;
+    top: calc(var(--header-h) + env(safe-area-inset-top, 0px));
+    left: 0; right: 0;
     flex-direction: column; align-items: flex-start;
     background: var(--bg-card-solid); backdrop-filter: blur(18px);
     border-bottom: 1px solid var(--border);
@@ -3299,9 +3352,11 @@ html[data-theme='purple'] .order-card .oc-badge.cart {
     transform: translateY(-12px); opacity: 0; pointer-events: none;
     transition: .22s ease; margin-left: 0;
     z-index: 105;
+    max-height: calc(100dvh - var(--header-h) - env(safe-area-inset-top, 0px));
+    overflow-y: auto;
   }
   .nav.open { transform: none; opacity: 1; pointer-events: auto; }
-  .nav a { font-size: 1rem; padding: 10px 6px; width: 100%; }
+  .nav a { font-size: 1rem; padding: 12px 6px; width: 100%; min-height: 44px; }
   .nav-mobile-only { display: block !important; }
   html:not([data-theme='purple']) .nav a { color: var(--ink); }
   html:not([data-theme='purple']) .nav a:hover { color: var(--accent); }
@@ -3316,7 +3371,7 @@ html[data-theme='purple'] .order-card .oc-badge.cart {
   .catalog-layout { gap: 16px; }
   .catalog-top {
     position: sticky;
-    top: var(--header-h);
+    top: calc(var(--header-h) + env(safe-area-inset-top, 0px));
     z-index: 3;
     background: color-mix(in srgb, var(--bg) 92%, transparent);
     backdrop-filter: blur(10px);
@@ -3476,6 +3531,12 @@ html[data-theme='purple'] .cur-btn.active {
   background: #fff; font-weight: 800; font-size: 0.85rem; color: #3f4f34;
 }
 .pay-receipt-name { font-size: 0.85rem; color: #7a7160; }
+.pay-receipt-hint {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: var(--danger, #c45c4a);
+  font-weight: 600;
+}
 .pay-hint { text-align: left !important; margin-top: 8px; color: #e67e63; }
 html[data-theme='purple'] .pay-requisites {
   background: #1a122c;
@@ -3749,7 +3810,7 @@ html[data-theme='purple'] .chat-fab-badge circle { fill: #a855f7; }
   position: absolute;
   right: 0;
   bottom: 72px;
-  width: min(380px, calc(100vw - 28px));
+  width: min(380px, calc(100% - 28px));
   height: min(560px, calc(100dvh - 110px));
   background: var(--bg-card-solid, var(--surface, #fffdf7));
   border: 1px solid var(--border);
@@ -4844,8 +4905,8 @@ body.chat-recording {
   .settings-panel {
     right: 0;
     left: auto;
-    width: min(300px, calc(100vw - 24px));
-    max-width: calc(100vw - 24px);
+    width: min(300px, calc(100% - 24px));
+    max-width: calc(100% - 24px);
   }
   .catalog-hero .section-head h1 {
     font-size: clamp(1.7rem, 7.5vw, 2.6rem);
@@ -4894,16 +4955,26 @@ body.chat-recording {
   }
   .products-grid {
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: 12px;
   }
-  .card-body { padding: 12px 12px 14px; gap: 6px; }
-  .card-title { font-size: 0.92rem; }
+  .card-body { padding: 12px 10px 14px; gap: 8px; }
+  .card-title { font-size: 0.88rem; line-height: 1.3; }
   .card-actions {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
-  .card-actions .btn { width: 100%; min-width: 0; }
+  .card-actions .btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 8px;
+    font-size: 0.82rem;
+  }
+  .card-fav {
+    width: 44px;
+    height: 44px;
+  }
   .cart-row {
     grid-template-columns: 64px 1fr;
     gap: 10px;

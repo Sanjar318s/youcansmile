@@ -1286,8 +1286,9 @@ const Chat = (() => {
       <div id="chatCardBlock">
         <p class="chat-order-card-hint">${escape(cardHint)}</p>
         <div class="field">
-          <label>${escape(I18n.t('pay_attach_receipt'))} (${escape(I18n.t('chat_order_receipt_optional'))})</label>
-          <input type="file" accept="image/*" class="js-receipt-input" id="chatOrdReceipt"/>
+          <label>${escape(I18n.t('pay_attach_receipt'))}</label>
+          <input type="file" accept="image/*" capture="environment" class="js-receipt-input" id="chatOrdReceipt"/>
+          <small class="field-hint">${escape(I18n.t('pay_receipt_required'))}</small>
         </div>
       </div>
       <div class="chat-loc-picker-actions" style="margin-top:12px">
@@ -1355,8 +1356,15 @@ const Chat = (() => {
     }
 
     let paymentReceipt = '';
-    if (payment === 'card' && typeof UI.getReceiptDataURL === 'function') {
-      paymentReceipt = await UI.getReceiptDataURL(body);
+    if (payment === 'card') {
+      if (typeof UI.getReceiptDataURL === 'function') {
+        paymentReceipt = await UI.getReceiptDataURL(body);
+      }
+      if (!paymentReceipt) {
+        UI.toast(I18n.t('pay_receipt_required'));
+        body.querySelector('.js-receipt-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
     }
 
     const title = orderProduct.title;
