@@ -37,8 +37,10 @@ const {
   deleteAllowedUser,
   formatConnectHistory,
   chatListPreview,
+  formatContactLookupCard,
+  contactLookupKeyboard,
 } = require(require('path').resolve(process.cwd(), 'lib/telegram'));
-const { getOrder, getOrders, getOrdersByStatus, getOrderByNumber, getSettings, saveSettings } = require(
+const { getOrder, getOrders, getOrdersByStatus, getOrderByNumber, getSettings, saveSettings, findContactsByPhone } = require(
   require('path').resolve(process.cwd(), 'lib/data')
 );
 const { ORDER_STATUSES, statusLabelRu, orderNumber } = require(require('path').resolve(process.cwd(), 'lib/orders'));
@@ -56,12 +58,15 @@ function isMenuText(t) {
   return (
     s === '📦 Заказы' ||
     s === '🔎 Поиск заказа' ||
+    s === '📞 Найти клиента' ||
     s === '📋 Чаты' ||
     s === '🔌 Отключиться' ||
     s === 'ℹ️ Статус' ||
     s === '❓ Помощь' ||
     s === '/orders' ||
     s === '/find' ||
+    s === '/findclient' ||
+    s === '/contacts' ||
     s === '/chats' ||
     s === '/menu' ||
     s === '/status' ||
@@ -195,6 +200,54 @@ async function tryOrderNumberLookup(chatId, rawText) {
   }
   await sendOrderCard(chatId, order);
   return true;
+}
+
+async function askFindClient(chatId) {
+  await setPendingAction(chatId, 'find_contact');
+  return sendTelegram({
+    chat_id: chatId,
+    parse_mode: 'HTML',
+    text:
+      '📞 <b>Найти клиента</b>\n\n' +
+      'Пришлите <b>телефон</b> сообщением (например <code>+79830646154</code>).\n' +
+      'Покажу: имя, Telegram / Instagram из профиля и заказов, ссылки WhatsApp и Telegram по номеру.\n\n' +
+      '«❌ Отмена» — отменить.',
+    reply_markup: sellerMainKeyboard(),
+  });
+}
+
+async function sendContactLookup(chatId, phoneOrResult) {
+  const result =
+    phoneOrResult && typeof phoneOrResult === 'object' && phoneOrResult.ok != null
+      ? phoneOrResult
+      : await findContactsByPhone(phoneOrResult);
+  if (!result.ok) {
+    return sendTelegram({
+      chat_id: chatId,
+      parse_mode: 'HTML',
+      text: 'Не похоже на телефон. Пришлите номер целиком, например <code>+79830646154</code>.',
+      reply_markup: sellerMainKeyboard(),
+    });
+  }
+  // Prefer connect button to site chat when we know customerId
+  let connectKb;
+  const customerId =
+    (result.accounts[0] && result.accounts[0].id) ||
+    (result.orders[0] && result.orders[0].customerId) ||
+    null;
+  try {
+    if (customerId) {
+      const thread = await getOrCreateThread(customerId);
+      connectKb = connectKeyboard(thread.id);
+    }
+  } catch (_) {}
+  return sendTelegram({
+    chat_id: chatId,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    text: formatContactLookupCard(result),
+    reply_markup: mergeInline(contactLookupKeyboard(result), connectKb),
+  });
 }
 
 async function downloadTelegramFile(fileId) {
@@ -341,6 +394,10 @@ async function handleMenuCommand(msg) {
     });
     return true;
   }
+  if (t === '📞 Найти клиента' || t === '/findclient' || t === '/contacts') {
+    await askFindClient(chatId);
+    return true;
+  }
   if (t === '📋 Чаты' || t === '/chats' || t === '/menu') {
     await sendChatsList(chatId);
     return true;
@@ -418,6 +475,29 @@ async function handleCallback(cq) {
   if (data.startsWith('connect:')) {
     const threadId = data.slice('connect:'.length);
     await doConnect(chatId, threadId);
+    return;
+  }
+  if (data === 'cfind:ask') {
+    await askFindClient(chatId);
+    return;
+  }
+  if (data.startsWith('cfind:')) {
+    const orderId = data.slice('cfind:'.length);
+    const order = await getOrder(orderId);
+    if (!order) {
+      await sendTelegram({ chat_id: chatId, text: 'Заказ не найден.' });
+      return;
+    }
+    const phone = (order.customer && order.customer.phone) || order.phone || '';
+    if (!phone) {
+      await sendTelegram({
+        chat_id: chatId,
+        text: 'В заказе нет телефона. Нажмите «📞 Найти клиента» и введите номер вручную.',
+        reply_markup: sellerMainKeyboard(),
+      });
+      return;
+    }
+    await sendContactLookup(chatId, phone);
     return;
   }
   if (data === 'orders:hub' || data === 'orders') {
@@ -565,62 +645,92 @@ module.exports = async (req, res) => {
       if (handled) return json(res, 200, { ok: true, menu: true });
     }
 
-    // Owner user-management flow (pending add/del), before any chat routing
+    // Pending actions (find client for any seller; add/del users for owners)
     const pending = (await getSettings().catch(() => null))?.telegramPendingAction;
-    if (
-      pending &&
-      isOwnerUsername(msg.from && msg.from.username) &&
-      String(pending.chatId) === String(chatId)
-    ) {
+    if (pending && String(pending.chatId) === String(chatId)) {
       if (msg.text && String(msg.text).trim() === '❌ Отмена') {
         await clearPendingAction();
-        await sendTelegram({ chat_id: chatId, text: 'Отменено.' });
+        await sendTelegram({
+          chat_id: chatId,
+          text: 'Отменено.',
+          reply_markup: sellerMainKeyboard(),
+        });
         return json(res, 200, { ok: true, pending: true });
       }
-      const uname = msg.text ? looksLikeUsername(msg.text) : '';
-      if (uname && Date.now() - Number(pending.ts || 0) <= 120000) {
-        if (pending.action === 'add') {
-          const r = await addAllowedUser(uname);
-          const text =
-            r.ok
-              ? `✅ @${uname} добавлен. Он получает уведомления и может отвечать в чаты.`
-              : r.error === 'owner'
-                ? `⛔ @${uname} — владелец, его нельзя добавить/удалить.`
-                : r.error === 'exists'
-                  ? `ℹ️ @${uname} уже в списке.`
-                  : 'Не удалось добавить.';
-          await clearPendingAction();
-          await sendTelegram({ chat_id: chatId, text });
-        } else if (pending.action === 'del') {
-          const r = await deleteAllowedUser(uname);
-          const text =
-            r.ok
-              ? `🗑️ @${uname} удалён и больше не получает уведомления.`
-              : r.error === 'owner'
-                ? `⛔ @${uname} — владелец, удалить нельзя.`
-                : r.error === 'missing'
-                  ? `ℹ️ @${uname} не в списке.`
-                  : 'Не удалось удалить.';
-          await clearPendingAction();
-          await sendTelegram({ chat_id: chatId, text });
-        }
-        return json(res, 200, { ok: true, users: true });
-      }
-      if (msg.text) {
-        if (uname) {
+
+      if (pending.action === 'find_contact' && msg.text) {
+        if (Date.now() - Number(pending.ts || 0) > 180000) {
           await clearPendingAction();
           await sendTelegram({
             chat_id: chatId,
-            text: '⏳ Время на ввод истекло. Нажмите кнопку ещё раз.',
+            text: '⏳ Время на ввод истекло. Нажмите «📞 Найти клиента» ещё раз.',
             reply_markup: sellerMainKeyboard(),
           });
-        } else {
+          return json(res, 200, { ok: true, pending: true });
+        }
+        const digits = String(msg.text).replace(/\D/g, '');
+        if (digits.length < 9) {
           await sendTelegram({
             chat_id: chatId,
-            text: 'Это не похоже на @username. Пришлите username (например @someone) или «❌ Отмена».',
+            parse_mode: 'HTML',
+            text: 'Нужен полный телефон (минимум 9 цифр), например <code>+79830646154</code>. Или «❌ Отмена».',
           });
+          return json(res, 200, { ok: true, pending: true });
         }
-        return json(res, 200, { ok: true, pending: true });
+        await clearPendingAction();
+        await sendContactLookup(chatId, msg.text);
+        return json(res, 200, { ok: true, findContact: true });
+      }
+
+      if (
+        isOwnerUsername(msg.from && msg.from.username) &&
+        (pending.action === 'add' || pending.action === 'del')
+      ) {
+        const uname = msg.text ? looksLikeUsername(msg.text) : '';
+        if (uname && Date.now() - Number(pending.ts || 0) <= 120000) {
+          if (pending.action === 'add') {
+            const r = await addAllowedUser(uname);
+            const text =
+              r.ok
+                ? `✅ @${uname} добавлен. Он получает уведомления и может отвечать в чаты.`
+                : r.error === 'owner'
+                  ? `⛔ @${uname} — владелец, его нельзя добавить/удалить.`
+                  : r.error === 'exists'
+                    ? `ℹ️ @${uname} уже в списке.`
+                    : 'Не удалось добавить.';
+            await clearPendingAction();
+            await sendTelegram({ chat_id: chatId, text });
+          } else if (pending.action === 'del') {
+            const r = await deleteAllowedUser(uname);
+            const text =
+              r.ok
+                ? `🗑️ @${uname} удалён и больше не получает уведомления.`
+                : r.error === 'owner'
+                  ? `⛔ @${uname} — владелец, удалить нельзя.`
+                  : r.error === 'missing'
+                    ? `ℹ️ @${uname} не в списке.`
+                    : 'Не удалось удалить.';
+            await clearPendingAction();
+            await sendTelegram({ chat_id: chatId, text });
+          }
+          return json(res, 200, { ok: true, users: true });
+        }
+        if (msg.text) {
+          if (uname) {
+            await clearPendingAction();
+            await sendTelegram({
+              chat_id: chatId,
+              text: '⏳ Время на ввод истекло. Нажмите кнопку ещё раз.',
+              reply_markup: sellerMainKeyboard(),
+            });
+          } else {
+            await sendTelegram({
+              chat_id: chatId,
+              text: 'Это не похоже на @username. Пришлите username (например @someone) или «❌ Отмена».',
+            });
+          }
+          return json(res, 200, { ok: true, pending: true });
+        }
       }
     }
 
