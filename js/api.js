@@ -504,6 +504,20 @@ const Api = {
     return { ok: true, user: next };
   },
 
+  async startTelegramVerify(phone) {
+    if (this.mode === 'remote') {
+      return this._remote('/api/telegram-verify/start', 'POST', { phone });
+    }
+    return { ok: false, error: 'local' };
+  },
+
+  async telegramVerifyStatus(phone) {
+    if (this.mode === 'remote') {
+      return this._remote('/api/telegram-verify/status?phone=' + encodeURIComponent(String(phone || '')));
+    }
+    return { verified: false };
+  },
+
   async getMyOrders() {
     if (this.mode === 'remote') return this._remote('/api/orders');
     const me = await this.getMe();

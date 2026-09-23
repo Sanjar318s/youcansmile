@@ -14,7 +14,7 @@
     const phoneEl = document.getElementById('cPhone');
     const contactEl = document.getElementById('cContact');
     if (nameEl && me.name) nameEl.value = me.name;
-    if (phoneEl && me.phone) phoneEl.value = me.phone.startsWith('+') ? me.phone : '+998 ' + me.phone.replace(/\D/g, '').slice(-9);
+    if (phoneEl && me.phone) phoneEl.value = me.phone.startsWith('+') ? me.phone : me.phone;
     if (me.instagram && !me.telegram) {
       const ig = document.querySelector('input[name="cContactChannel"][value="instagram"]');
       if (ig) ig.checked = true;
@@ -35,6 +35,19 @@
     return (document.querySelector('input[name="cContactChannel"]:checked') || {}).value || 'telegram';
   }
 
+  const submitBtn = form && form.querySelector('button[type="submit"]');
+  const checkoutContact =
+    typeof CheckoutContact !== 'undefined'
+      ? CheckoutContact.attach({
+          phoneInput: document.getElementById('cPhone'),
+          contactInput: document.getElementById('cContact'),
+          getChannel: contactChannel,
+          verifyHost: document.getElementById('cTgVerifyHost'),
+          submitBtn: submitBtn,
+          initialPhone: (me && me.phone) || document.getElementById('cPhone')?.value || '+998 ',
+        })
+      : null;
+
   photoInput.addEventListener('change', async () => {
     const file = photoInput.files && photoInput.files[0];
     if (!file) {
@@ -48,36 +61,56 @@
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!me || me.role !== 'customer') {
+      UI.toast(I18n.t('order_login_required'));
+      location.href = 'account.html?next=' + encodeURIComponent('custom-order.html');
+      return;
+    }
     const name = document.getElementById('cName').value.trim();
-    const phone = document.getElementById('cPhone').value.trim();
+    const phoneGate = checkoutContact
+      ? checkoutContact.gateBeforeSubmit()
+      : { ok: true, phone: document.getElementById('cPhone').value.trim() };
+    if (!phoneGate.ok) return;
+    const phone = phoneGate.phone;
     const desc = document.getElementById('cDesc').value.trim();
     const contact = document.getElementById('cContact').value.trim();
     const channel = contactChannel();
-    if (!name || !phone || !desc || !contact) {
+    if (!name || !desc) {
       UI.toast(I18n.t('order_required'));
       return;
     }
 
-    await Api.createOrder({
-      type: 'custom',
-      customerId: me && me.role === 'customer' ? me.id : undefined,
-      characterImage,
-      customer: {
-        name,
-        phone,
-        contact,
-        contactChannel: channel,
-        address: '',
-        note: desc,
-      },
-      items: [],
-      total: 0,
-      customDescription: desc,
-      lang: I18n.lang,
-    });
+    try {
+      await Api.createOrder({
+        type: 'custom',
+        customerId: me.id,
+        characterImage,
+        customer: {
+          name,
+          phone,
+          contact,
+          contactChannel: channel,
+          address: '',
+          note: desc,
+        },
+        items: [],
+        total: 0,
+        customDescription: desc,
+        lang: I18n.lang,
+      });
 
-    form.classList.add('hidden');
-    ok.classList.remove('hidden');
-    ok.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      form.classList.add('hidden');
+      ok.classList.remove('hidden');
+    } catch (err) {
+      const emsg = (err && err.message) || '';
+      if (emsg === 'need_telegram_verify') {
+        UI.toast(I18n.t('foreign_contact_title'));
+        if (checkoutContact) checkoutContact.gateBeforeSubmit();
+      } else if (emsg === 'bad_phone') {
+        UI.toast(I18n.t('phone_incomplete'));
+      } else {
+        UI.toast(emsg || I18n.t('order_send_fail'));
+      }
+    }
   });
 })();

@@ -614,6 +614,64 @@ module.exports = async (req, res) => {
   try {
     const update = (await readBody(req)) || {};
 
+    // Customer Telegram verify — must run BEFORE seller allowlist
+    const startMsg = update.message || update.edited_message;
+    const startText = String((startMsg && startMsg.text) || '').trim();
+    const verifyMatch = startText.match(/^\/start(?:@\w+)?\s+v_([A-Za-z0-9_]+)\s*$/i);
+    if (verifyMatch && startMsg) {
+      const token = verifyMatch[1];
+      const chatId = startMsg.chat && startMsg.chat.id;
+      const from = startMsg.from || {};
+      try {
+        const {
+          getVerifyToken,
+          markTokenUsed,
+          bindPhoneTelegram,
+        } = require(require('path').resolve(process.cwd(), 'lib/telegram-verify'));
+        const row = await getVerifyToken(token);
+        if (!row) {
+          if (chatId) await sendTelegram({ chat_id: chatId, text: 'Ссылка недействительна. Откройте подтверждение заново на сайте.' });
+          return json(res, 200, { ok: true, verify: 'missing' });
+        }
+        if (row.used_at) {
+          if (chatId) await sendTelegram({ chat_id: chatId, text: 'Эта ссылка уже использована. Вернитесь на сайт — статус обновится.' });
+          return json(res, 200, { ok: true, verify: 'used' });
+        }
+        if (Number(row.expires_at) < Date.now()) {
+          if (chatId) await sendTelegram({ chat_id: chatId, text: 'Срок ссылки истёк. Нажмите «Подтвердить через Telegram» на сайте ещё раз.' });
+          return json(res, 200, { ok: true, verify: 'expired' });
+        }
+        await bindPhoneTelegram({
+          phoneE164: row.phone_e164,
+          telegramId: from.id,
+          telegramUsername: from.username || '',
+          customerId: row.customer_id || null,
+        });
+        await markTokenUsed(token);
+        if (chatId) {
+          await sendTelegram({
+            chat_id: chatId,
+            parse_mode: 'HTML',
+            text:
+              '✅ <b>Telegram подтверждён</b>\n' +
+              `Номер <code>+${escHtml(row.phone_e164)}</code> привязан к этому аккаунту.\n` +
+              'Вернитесь на сайт и оформите заказ — кнопка подтверждения больше не нужна.',
+          });
+        }
+      } catch (e) {
+        const code = e && e.code;
+        if (chatId) {
+          const msg =
+            code === 'telegram_taken'
+              ? '⛔ Этот Telegram уже привязан к другому номеру телефона. Используйте свой аккаунт или другой номер.'
+              : 'Не удалось подтвердить. Попробуйте ещё раз с сайта.';
+          await sendTelegram({ chat_id: chatId, text: msg });
+        }
+        return json(res, 200, { ok: true, verify: 'error', code });
+      }
+      return json(res, 200, { ok: true, verify: 'ok' });
+    }
+
     const gateFrom = update.message?.from || update.edited_message?.from || update.callback_query?.from;
     if (gateFrom && !(await isAllowedTelegramUser(gateFrom))) {
       if (update.callback_query) {

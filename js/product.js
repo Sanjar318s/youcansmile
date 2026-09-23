@@ -213,6 +213,11 @@
       </form>`;
     applyI18n(root);
 
+    let revPhoneCtl = null;
+    if (typeof Phone !== 'undefined' && Phone.bind) {
+      revPhoneCtl = Phone.bind(document.getElementById('revPhone'), {});
+    }
+
     const starBox = document.getElementById('revStars');
     const ratingInput = document.getElementById('revRating');
     const paintStars = (n, persist) => {
@@ -239,10 +244,20 @@
       e.preventDefault();
       const errEl = document.getElementById('revErr');
       errEl.classList.add('hidden');
+      const phoneParsed = revPhoneCtl
+        ? revPhoneCtl.getParsed()
+        : typeof Phone !== 'undefined'
+          ? Phone.parsePhone(document.getElementById('revPhone').value)
+          : { complete: true, display: document.getElementById('revPhone').value };
+      if (!phoneParsed.complete) {
+        errEl.textContent = I18n.t('phone_incomplete');
+        errEl.classList.remove('hidden');
+        return;
+      }
       const result = await Api.createReview({
         productId: prod.id,
         orderId: document.getElementById('revOrder').value,
-        phone: document.getElementById('revPhone').value,
+        phone: phoneParsed.display,
         rating: Number(document.getElementById('revRating').value),
         text: document.getElementById('revText').value,
       });

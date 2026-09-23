@@ -24,7 +24,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link rel="stylesheet" href="css/styles.css?v=20260917s"/>
+  <link rel="stylesheet" href="css/styles.css?v=20260923a"/>
 </head>
 <body>
   <div id="header-root"></div>
@@ -66,7 +66,7 @@
             </div>
             <div class="field">
               <label data-i18n="order_phone_id">Телефон</label>
-              <input id="cPhone" required type="tel" value="+998 " placeholder="+998 __ ___ __ __" data-ph-i18n="order_phone_ph_id"/>
+              <input id="cPhone" required type="tel" value="+998 " placeholder="+998 __ ___ __ __" data-ph-i18n="order_phone_ph_id" autocomplete="tel"/>
             </div>
             <div class="field full">
               <label data-i18n="contact_channel">Куда написать</label>
@@ -76,8 +76,13 @@
               </div>
             </div>
             <div class="field full">
-              <label data-i18n="contact_username">Юзернейм</label>
-              <input id="cContact" required data-ph-i18n="contact_username_ph" placeholder="@username"/>
+              <label data-i18n="contact_username">Юзернейм / ссылка</label>
+              <input id="cContact" data-ph-i18n="contact_username_ph" placeholder="@username"/>
+              <div id="cTgVerifyHost" class="tg-verify-row hidden">
+                <button type="button" class="btn btn-sm btn-primary" data-tg-verify-btn data-i18n="tg_verify_btn">Подтвердить через Telegram</button>
+                <span class="tg-verify-badge hidden" data-tg-badge></span>
+              </div>
+              <small class="field-hint" data-i18n="foreign_contact_hint">Для номеров не +998 нужен подтверждённый Telegram или Instagram/@ссылка</small>
             </div>
           </div>
         </div>
@@ -107,16 +112,18 @@
 
   <div id="footer-root"></div>
 
-  <script src="js/i18n.js?v=20260917s" defer></script>
-  <script src="js/api.js?v=20260813s" defer></script>
+  <script src="js/i18n.js?v=20260923a" defer></script>
+  <script src="js/api.js?v=20260923a" defer></script>
   <script src="js/theme-apply.js?v=20260813s" defer></script>
   <script src="js/store.js?v=20260813s" defer></script>
-  <script src="js/ui.js?v=20260917s" defer></script>
+  <script src="js/ui.js?v=20260923a" defer></script>
   <script src="js/lazy.js?v=20260917s" defer></script>
   <script src="js/parallax.js?v=20260917s" defer></script>
   <script src="js/scroll-reveal.js?v=20260814k" defer></script>
   <script src="js/push-client.js?v=20260813s" defer></script>
+  <script src="js/phone.js?v=20260923a" defer></script>
+  <script src="js/checkout-contact.js?v=20260923a" defer></script>
   <script src="js/chat-lazy.js?v=20260917s" defer></script>
-  <script src="js/custom-order.js?v=20260813s" defer></script>
+  <script src="js/custom-order.js?v=20260923a" defer></script>
 </body>
 </html>

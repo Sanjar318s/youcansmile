@@ -46,7 +46,8 @@
     const addrEl = document.getElementById('profileAddress');
     if (!nameEl) return;
     nameEl.value = user.name || '';
-    if (phoneEl) phoneEl.value = user.phone || '';
+    if (phoneEl && profilePhoneCtl) profilePhoneCtl.setValue(user.phone || '+998 ');
+    else if (phoneEl) phoneEl.value = user.phone || '';
     if (tgEl) {
       tgEl.value = user.telegram
         ? user.telegram.startsWith('@')
@@ -65,6 +66,15 @@
       addrEl.value = user.address || '';
       if (!addrEl.placeholder) addrEl.placeholder = I18n.t('account_address_ph');
     }
+  }
+
+  let loginPhoneCtl = null;
+  let regPhoneCtl = null;
+  let profilePhoneCtl = null;
+  if (typeof Phone !== 'undefined' && Phone.bind) {
+    loginPhoneCtl = Phone.bind(document.getElementById('loginPhone'), {});
+    regPhoneCtl = Phone.bind(document.getElementById('regPhone'), {});
+    profilePhoneCtl = Phone.bind(document.getElementById('profilePhone'), {});
   }
 
   function paintUserShell(user) {
@@ -145,7 +155,16 @@
     e.preventDefault();
     const btn = profileForm.querySelector('button[type="submit"]');
     const name = document.getElementById('profileName').value.trim();
-    const phone = document.getElementById('profilePhone').value.trim();
+    const phoneParsed = profilePhoneCtl
+      ? profilePhoneCtl.getParsed()
+      : typeof Phone !== 'undefined'
+        ? Phone.parsePhone(document.getElementById('profilePhone').value)
+        : { complete: !!document.getElementById('profilePhone').value.trim(), display: document.getElementById('profilePhone').value.trim() };
+    if (!phoneParsed.complete) {
+      UI.toast(I18n.t('phone_incomplete'));
+      return;
+    }
+    const phone = phoneParsed.display;
     const telegram = document.getElementById('profileTelegram').value.trim();
     const instagram = document.getElementById('profileInstagram').value.trim();
     const address = document.getElementById('profileAddress').value.trim();
@@ -168,7 +187,8 @@
       await showUser(fresh);
       UI.toast(I18n.t('account_profile_saved'));
     } catch (err) {
-      UI.toast(err.message === 'phone_exists' ? I18n.t('account_err_phone_exists') : I18n.t('account_profile_err'));
+      const emsg = (err && err.message) || '';
+      UI.toast(emsg === 'phone_exists' ? I18n.t('account_err_phone_exists') : emsg === 'bad_phone' ? I18n.t('phone_incomplete') : I18n.t('account_profile_err'));
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -176,7 +196,12 @@
 
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const phone = document.getElementById('loginPhone').value.trim();
+    const phoneParsed = loginPhoneCtl ? loginPhoneCtl.getParsed() : { complete: true, display: document.getElementById('loginPhone').value.trim() };
+    if (!phoneParsed.complete) {
+      UI.toast(I18n.t('phone_incomplete'));
+      return;
+    }
+    const phone = phoneParsed.display;
     const password = document.getElementById('loginPassword').value;
     const res = await Api.login(phone, password);
     if (!res.ok) {
@@ -191,11 +216,16 @@
   registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('regName').value.trim();
-    const phone = document.getElementById('regPhone').value.trim();
+    const phoneParsed = regPhoneCtl ? regPhoneCtl.getParsed() : { complete: true, display: document.getElementById('regPhone').value.trim() };
+    if (!phoneParsed.complete) {
+      UI.toast(I18n.t('phone_incomplete'));
+      return;
+    }
+    const phone = phoneParsed.display;
     const password = document.getElementById('regPassword').value;
     const res = await Api.register({ name, phone, password });
     if (!res.ok) {
-      UI.toast(res.error === 'phone_exists' ? I18n.t('account_err_phone_exists') : I18n.t('account_err_credentials'));
+      UI.toast(res.error === 'phone_exists' ? I18n.t('account_err_phone_exists') : res.error === 'bad_phone' ? I18n.t('phone_incomplete') : I18n.t('account_err_credentials'));
       return;
     }
     const user = (await Api.getMe()) || res.user;

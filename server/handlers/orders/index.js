@@ -5,6 +5,7 @@ const { getDb } = require(require('path').resolve(process.cwd(), 'lib/db'));
 const { getSessionUser } = require(require('path').resolve(process.cwd(), 'lib/auth'));
 const { allocOrderNumber, orderNumberLabel } = require(require('path').resolve(process.cwd(), 'lib/orders'));
 const { notifyAdmins } = require(require('path').resolve(process.cwd(), 'lib/push'));
+const { validateOrderCustomer, enrichCustomer } = require(require('path').resolve(process.cwd(), 'lib/order-contact'));
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
@@ -25,6 +26,11 @@ module.exports = async (req, res) => {
       if (!me || me.role !== 'customer') {
         return json(res, 401, { error: 'auth', message: 'login_required' });
       }
+      const validation = await validateOrderCustomer(body.customer || {});
+      if (!validation.ok) {
+        return json(res, 400, { error: validation.error });
+      }
+      const customer = enrichCustomer(body.customer || {}, validation);
       const number = await allocOrderNumber(getDb);
       const order = Object.assign(
         {
@@ -35,7 +41,7 @@ module.exports = async (req, res) => {
           customerId: me.id,
         },
         body,
-        { customerId: me.id, number }
+        { customerId: me.id, number, customer }
       );
       await saveOrder(order);
       try {

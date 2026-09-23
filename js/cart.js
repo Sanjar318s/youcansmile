@@ -18,7 +18,7 @@
     const contactEl = document.getElementById('oContactUser');
     const addressEl = document.getElementById('oAddress');
     if (nameEl && me.name) nameEl.value = me.name;
-    if (phoneEl && me.phone) phoneEl.value = me.phone.startsWith('+') ? me.phone : '+998 ' + me.phone.replace(/\D/g, '').slice(-9);
+    if (phoneEl && me.phone) phoneEl.value = me.phone.startsWith('+') ? me.phone : me.phone;
     if (me.instagram && !me.telegram) {
       const ig = document.querySelector('input[name="oContactChannel"][value="instagram"]');
       if (ig) ig.checked = true;
@@ -78,6 +78,19 @@
   function getContactChannel() {
     return (document.querySelector('input[name="oContactChannel"]:checked') || {}).value || 'telegram';
   }
+
+  const orderSubmitBtn = orderForm && orderForm.querySelector('button[type="submit"]');
+  const checkoutContact =
+    typeof CheckoutContact !== 'undefined'
+      ? CheckoutContact.attach({
+          phoneInput: document.getElementById('oPhone'),
+          contactInput: document.getElementById('oContactUser'),
+          getChannel: getContactChannel,
+          verifyHost: document.getElementById('oTgVerifyHost'),
+          submitBtn: orderSubmitBtn,
+          initialPhone: (me && me.phone) || document.getElementById('oPhone')?.value || '+998 ',
+        })
+      : null;
 
   function selectedPickup() {
     return pickupPoints.find((p) => p.id === pickupSelect.value) || null;
@@ -257,7 +270,11 @@
       return;
     }
     const name = document.getElementById('oName').value.trim();
-    const phone = document.getElementById('oPhone').value.trim();
+    const phoneGate = checkoutContact
+      ? checkoutContact.gateBeforeSubmit()
+      : { ok: true, phone: document.getElementById('oPhone').value.trim() };
+    if (!phoneGate.ok) return;
+    const phone = phoneGate.phone;
     const contactUser = document.getElementById('oContactUser').value.trim();
     const contactChannel = getContactChannel();
     const fulfillment = getFulfillment();
@@ -268,14 +285,9 @@
         ? (pt ? I18n.txt(pt.address) : '')
         : document.getElementById('oAddress').value.trim() || picked.address;
 
-    if (!name || !phone || !contactUser) {
+    if (!name) {
       UI.toast(I18n.t('order_required'));
-      const firstBad = !name
-        ? document.getElementById('oName')
-        : !phone
-          ? document.getElementById('oPhone')
-          : document.getElementById('oContactUser');
-      if (firstBad) firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('oName')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     if (fulfillment === 'delivery' && payment === 'cash') {
@@ -376,6 +388,13 @@
       if (emsg === 'auth' || emsg === 'login_required') {
         UI.toast(I18n.t('order_login_required'));
         location.href = 'account.html?next=' + encodeURIComponent('cart.html');
+      } else if (emsg === 'need_telegram_verify') {
+        UI.toast(I18n.t('foreign_contact_title'));
+        if (checkoutContact) checkoutContact.gateBeforeSubmit();
+      } else if (emsg === 'bad_phone') {
+        UI.toast(I18n.t('phone_incomplete'));
+      } else if (emsg === 'need_contact') {
+        UI.toast(I18n.t('order_required'));
       } else {
         UI.toast(emsg || I18n.t('order_send_fail'));
       }
