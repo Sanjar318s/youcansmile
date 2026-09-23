@@ -35,6 +35,8 @@ const {
   normUser,
   addAllowedUser,
   deleteAllowedUser,
+  formatConnectHistory,
+  chatListPreview,
 } = require(require('path').resolve(process.cwd(), 'lib/telegram'));
 const { getOrder, getOrders, getOrdersByStatus, getOrderByNumber, getSettings, saveSettings } = require(
   require('path').resolve(process.cwd(), 'lib/data')
@@ -235,7 +237,7 @@ async function sendChatsList(chatId) {
   const lines = threads.map((t, i) => {
     const mark = t.seller_connected ? '🟢' : t.needs_seller ? '🟡' : '⚪';
     const name = t.customer_name || t.customer_phone || shortId(t.id);
-    const preview = String(t.last_text || t.last_type || '—').replace(/\s+/g, ' ').slice(0, 42);
+    const preview = chatListPreview(t);
     return `${i + 1}. ${mark} <b>${escHtml(name)}</b>\n    <i>${escHtml(preview)}</i>`;
   });
   return sendTelegram({
@@ -282,34 +284,20 @@ async function doConnect(chatId, threadId) {
   await setNeedsSeller(threadId, true);
   const name = await threadTitle(thread);
   const recent = await getMessages(threadId, 0);
-  const last = recent.slice(-6);
-  const history = last
-    .map((m) => {
-      const who = m.author === 'customer' ? '👤' : m.author === 'seller' ? '🧑‍💼' : '🤖';
-      const body =
-        m.type === 'text'
-          ? m.text
-          : m.type === 'photo'
-            ? '📷 фото'
-            : m.type === 'voice'
-              ? '🎤 голос'
-              : m.type === 'location'
-                ? '📍 локация'
-                : m.type;
-      return `${who} ${escHtml(String(body || '').slice(0, 120))}`;
-    })
-    .join('\n');
+  const history = formatConnectHistory(recent);
 
-  return sendTelegram({
+  await sendTelegram({
     chat_id: chatId,
     parse_mode: 'HTML',
     reply_markup: liveKeyboard(threadId),
     text:
       `🟢 <b>Подключены</b> к чату <b>${escHtml(name)}</b>\n` +
-      `Теперь ваши сообщения уходят этому клиенту.\n\n` +
-      (history ? `<b>Недавние сообщения:</b>\n${history}\n\n` : '') +
-      `Напишите ответ ниже 👇\n` +
+      `Теперь ваши сообщения уходят этому клиенту на сайт.\n` +
+      `Новые сообщения клиента будут приходить сюда сразу.\n\n` +
+      history +
+      `\n\nНапишите ответ ниже 👇\n` +
       `<i>Отключиться — когда закончите.</i>`,
+    disable_web_page_preview: true,
   });
 }
 

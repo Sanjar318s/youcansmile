@@ -88,6 +88,13 @@ module.exports = async (req, res) => {
       if (connected) {
         // продавец уже в чате — ИИ молчит, сообщение уходит продавцу
         await notifySellerLive(toTelegramMsg(msg), customer, thread.id, orderId);
+      } else if (needsSeller) {
+        // клиент уже позвал продавца — каждое новое сообщение шлём в Telegram,
+        // ИИ больше не перехватывает диалог
+        await notifySellerLive(toTelegramMsg(msg), customer, thread.id, orderId, {
+          title: '💬 Клиент пишет · ждёт вас',
+          waiting: true,
+        });
       } else {
         const history = await getMessages(thread.id);
         const { answer, escalate, payload } = await aiReply(msg.text, orders, settings, { history });
@@ -104,11 +111,6 @@ module.exports = async (req, res) => {
           };
           await saveMessage(agentMsg);
           out.push(agentMsg);
-          // AI handled it — don't keep "seller connecting" status
-          if (needsSeller && !connected) {
-            await setNeedsSeller(thread.id, false);
-            needsSeller = false;
-          }
           try {
             await notifyUser(me.id, {
               title: 'YouCanSmile',
